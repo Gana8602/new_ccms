@@ -1,0 +1,365 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CCMS Dashboard</title>
+    <link rel="stylesheet" href="{% static 'dashboard/css/style.css' %}">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <!-- Camera SVG Icon -->
+                <svg class="camera-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <path
+                        d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4zM15 16H5V8h10v8z" />
+                </svg>
+                <h1 class="app-title">CCMS</h1>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item active">Dashboard</li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Blank Header -->
+            <header class="main-header">
+                <div id="alert-banner" class="alert-banner" style="display:none; width: 100%; text-align: center; padding: 10px; font-weight: bold; background-color: #ff4444; color: white;">
+                    No Alerts
+                </div>
+            </header>
+
+            <!-- Grid Container -->
+            <div class="grid-container">
+                <!-- Center Box -->
+                <div class="center-box" style="position: relative;">
+                    <!-- View Mode Toggle -->
+                    <div class="view-toggle-container" style="position: absolute; top: 10px; right: 10px; z-index: 100; background: rgba(0,0,0,0.6); padding: 5px; border-radius: 5px; display: flex; gap: 5px;">
+                        <button id="btn-clear-view" style="background: #2196F3; color: white; border: none; padding: 5px 15px; border-radius: 3px; cursor: pointer; font-weight: bold;">Clear View</button>
+                        <button id="btn-ai-view" style="background: transparent; color: white; border: 1px solid #555; padding: 5px 15px; border-radius: 3px; cursor: pointer;">AI View</button>
+                    </div>
+                    <img src="{% url 'video_feed' %}" class="video-feed" alt="Camera Feed">
+                </div>
+
+                <!-- Right Side Vertical Scrolling Container -->
+                <div class="right-scroller">
+                    <div class="gallery-heading">
+                        <span>Known Faces</span>
+                        <span id="known-face-count" class="gallery-count">0</span>
+                    </div>
+                    <div id="known-face-gallery" class="face-gallery vertical">
+                        <div class="gallery-empty">No known faces yet</div>
+                    </div>
+                </div>
+
+                <!-- Left Side Container -->
+                <div class="left-container">
+                    <!-- Forward Count Card -->
+                    <div class="grid-box count-card">
+                        <div class="count-header">
+                            <h3 class="count-title">Forward</h3>
+                            <div class="icon-wrapper up">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="24" height="24">
+                                    <path d="M440-160v-487L216-423l-56-57 320-320 320 320-56 57-224-224v487h-80Z" />
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="count-value" id="val-forward">0</div>
+                    </div>
+                    <!-- Backward Count Card -->
+                    <div class="grid-box count-card">
+                        <div class="count-header">
+                            <h3 class="count-title">Backward</h3>
+                            <div class="icon-wrapper down">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="24" height="24">
+                                    <path d="M440-800v487L216-537l-56 57 320 320 320-320-56-57-224 224v-487h-80Z" />
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="count-value" id="val-backward">0</div>
+                    </div>
+                </div>
+
+                <!-- 6 Top/Bottom Metric Cards and 4 empty static boxes -->
+
+                <!-- 1. Inside Fencing -->
+                <div class="grid-box count-card">
+                    <div class="count-header">
+                        <h3 class="count-title">Inside<br>Fencing</h3>
+                        <div class="icon-wrapper blue">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="20" height="20">
+                                <path
+                                    d="M480-480q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 66-47 113t-113 47ZM160-160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440q66 0 130 15.5T736-378q29 15 46.5 43.5T800-272v112H160Z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="count-value" id="val-inside">0</div>
+                </div>
+
+                <!-- 2. Density Estimate -->
+                <div class="grid-box count-card">
+                    <div class="count-header">
+                        <h3 class="count-title">Density<br>Estimate</h3>
+                        <div class="icon-wrapper teal">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="20" height="20">
+                                <path
+                                    d="M480-520q-50 0-85-35t-35-85q0-50 35-85t85-35q50 0 85 35t35 85q0 50-35 85t-85 35ZM280-160v-280q0-33 23.5-56.5T360-520h240q33 0 56.5 23.5T680-440v280H280Z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="count-value" id="val-density" style="display:inline-block; font-size:36px;">0</div>
+                        <div class="capacity-text">% (<span id="val-density-level">LOW</span>)</div>
+                    </div>
+                </div>
+
+                <!-- 3. Occupancy -->
+                <div class="grid-box count-card">
+                    <div class="count-header">
+                        <h3 class="count-title">Occupancy</h3>
+                        <div class="icon-wrapper purple">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="20" height="20">
+                                <path
+                                    d="M480-520q-50 0-85-35t-35-85q0-50 35-85t85-35q50 0 85 35t35 85q0 50-35 85t-85 35ZM320-160v-160L200-560h160q0-33 23.5-56.5T440-640h80q33 0 56.5 23.5T600-560h160L640-320v160H320Z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="count-value" id="val-occupancy" style="display:inline-block; font-size:36px;">0</div>
+                        <div class="capacity-text">%</div>
+                    </div>
+                </div>
+
+                <!-- 4. Outside Fencing -->
+                <div class="grid-box count-card">
+                    <div class="count-header">
+                        <h3 class="count-title">Outside<br>Fencing</h3>
+                        <div class="icon-wrapper orange">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="20" height="20">
+                                <path
+                                    d="M480-480q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 66-47 113t-113 47ZM160-160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440q66 0 130 15.5T736-378q29 15 46.5 43.5T800-272v112H160Z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="count-value" id="val-outside">0</div>
+                </div>
+
+                <!-- 5. Total Count -->
+                <div class="grid-box count-card">
+                    <div class="count-header">
+                        <h3 class="count-title">Total<br>Count</h3>
+                        <div class="icon-wrapper up">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="20" height="20">
+                                <path
+                                    d="M480-480q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 66-47 113t-113 47ZM160-160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440q66 0 130 15.5T736-378q29 15 46.5 43.5T800-272v112H160Z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="count-value" id="val-total">0</div>
+                </div>
+
+                <!-- 6. Capacity (First box on bottom row) -->
+                <div class="grid-box count-card">
+                    <div class="count-header">
+                        <h3 class="count-title">Available</h3>
+                        <div class="icon-wrapper down">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="20" height="20">
+                                <path
+                                    d="M840-680v480q0 33-23.5 56.5T760-120H200q-33 0-56.5-23.5T120-200v-480q0-33 23.5-56.5T200-760h560q33 0 56.5 23.5T840-680ZM200-200h560v-480H200v480Zm0 0v-480 480Z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="count-value" id="val-available" style="display:inline-block; font-size:36px;">0</div>
+                        <div class="capacity-text">/ 200 Allowed</div>
+                    </div>
+                </div>
+
+                <!-- Bottom Horizontal Scrolling Container -->
+                <div class="bottom-scroller">
+                    <div class="gallery-heading horizontal-heading">
+                        <span>Unknown &amp; Masked</span>
+                        <span>
+                            <span id="unknown-face-count" class="gallery-count">0</span>
+                            <span id="masked-face-count" class="gallery-count masked">0</span>
+                        </span>
+                    </div>
+                    <div id="observation-gallery" class="face-gallery horizontal">
+                        <div class="gallery-empty">No unknown observations yet</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function updateCounts() {
+            fetch('/api/counts/')
+                .then(response => response.json())
+                .then(data => {
+                    // Update Counts
+                    document.getElementById('val-forward').innerText = data.forward || 0;
+                    document.getElementById('val-backward').innerText = data.backward || 0;
+                    document.getElementById('val-inside').innerText = data.inside;
+                    document.getElementById('val-outside').innerText = data.outside;
+                    document.getElementById('val-total').innerText = data.total;
+                    document.getElementById('val-available').innerText = data.available;
+                    
+                    // Update New Dense Crowd Metrics
+                    document.getElementById('val-density').innerText = data.density_percentage;
+                    document.getElementById('val-density-level').innerText = data.density_level;
+                    document.getElementById('val-occupancy').innerText = data.occupancy;
+                    
+                    // Update Alerts
+                    const alertBanner = document.getElementById('alert-banner');
+                    if (data.alerts && data.alerts.length > 0) {
+                        alertBanner.style.display = 'block';
+                        alertBanner.innerText = data.alerts[0].message;
+                        if (data.alerts[0].level === "CRITICAL") {
+                            alertBanner.style.backgroundColor = "#ff0000";
+                        } else {
+                            alertBanner.style.backgroundColor = "#ff9900";
+                        }
+                    } else {
+                        alertBanner.style.display = 'none';
+                    }
+                })
+                .catch(error => console.error('Error fetching counts:', error));
+        }
+
+        // Poll every 1 second
+        setInterval(updateCounts, 1000);
+        // Initial fetch
+        updateCounts();
+
+        function formatSeen(timestamp) {
+            if (!timestamp) return 'Not available';
+            return new Date(timestamp).toLocaleString();
+        }
+
+        function createFaceCard(face, known) {
+            const card = document.createElement('article');
+            card.className = `face-card ${face.label === 'MASKED' ? 'masked' : ''}`;
+
+            const image = document.createElement('img');
+            image.src = face.image_url;
+            image.alt = known ? face.person_id : face.label;
+            image.loading = 'lazy';
+            card.appendChild(image);
+
+            const details = document.createElement('div');
+            details.className = 'face-card-details';
+
+            const label = document.createElement('strong');
+            label.textContent = known ? face.person_id : face.label;
+            details.appendChild(label);
+
+            const timestamp = document.createElement('span');
+            timestamp.textContent = formatSeen(
+                known ? face.last_seen : face.timestamp
+            );
+            details.appendChild(timestamp);
+
+            if (known) {
+                const seenCount = document.createElement('span');
+                seenCount.textContent = `Seen ${face.seen_count} time${face.seen_count === 1 ? '' : 's'}`;
+                details.appendChild(seenCount);
+            }
+
+            card.appendChild(details);
+            return card;
+        }
+
+        function replaceGallery(container, faces, known, emptyText) {
+            container.replaceChildren();
+            if (!faces.length) {
+                const empty = document.createElement('div');
+                empty.className = 'gallery-empty';
+                empty.textContent = emptyText;
+                container.appendChild(empty);
+                return;
+            }
+            faces.forEach(face => container.appendChild(createFaceCard(face, known)));
+        }
+
+        function updateFaceGalleries() {
+            Promise.all([
+                fetch('/api/faces/known/').then(response => response.json()),
+                fetch('/api/faces/unknown/').then(response => response.json()),
+                fetch('/api/faces/masked/').then(response => response.json()),
+                fetch('/api/faces/stats/').then(response => response.json())
+            ]).then(([known, unknown, masked, stats]) => {
+                replaceGallery(
+                    document.getElementById('known-face-gallery'),
+                    known.faces || [],
+                    true,
+                    known.recognition_available
+                        ? 'No known faces yet'
+                        : 'Install InsightFace to enable PERSON-ID'
+                );
+                replaceGallery(
+                    document.getElementById('observation-gallery'),
+                    [...(unknown.faces || []), ...(masked.faces || [])]
+                        .sort((left, right) => new Date(right.timestamp) - new Date(left.timestamp)),
+                    false,
+                    'No unknown observations yet'
+                );
+                document.getElementById('known-face-count').textContent = stats.known_count;
+                document.getElementById('unknown-face-count').textContent = `U ${stats.unknown_count}`;
+                document.getElementById('masked-face-count').textContent = `M ${stats.masked_count}`;
+            }).catch(error => console.error('Error fetching face galleries:', error));
+        }
+
+        setInterval(updateFaceGalleries, 3000);
+        updateFaceGalleries();
+
+        // View Mode Toggle Logic
+        let aiViewEnabled = false;
+        
+        const btnClear = document.getElementById('btn-clear-view');
+        const btnAi = document.getElementById('btn-ai-view');
+
+        function toggleViewMode(isAi) {
+            aiViewEnabled = isAi;
+            
+            // Update UI buttons
+            if (isAi) {
+                btnAi.style.background = '#2196F3';
+                btnAi.style.border = 'none';
+                btnAi.style.fontWeight = 'bold';
+                
+                btnClear.style.background = 'transparent';
+                btnClear.style.border = '1px solid #555';
+                btnClear.style.fontWeight = 'normal';
+            } else {
+                btnClear.style.background = '#2196F3';
+                btnClear.style.border = 'none';
+                btnClear.style.fontWeight = 'bold';
+                
+                btnAi.style.background = 'transparent';
+                btnAi.style.border = '1px solid #555';
+                btnAi.style.fontWeight = 'normal';
+            }
+            
+            // Send API request
+            fetch('/api/view-mode/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ ai_view: aiViewEnabled })
+            }).catch(error => console.error('Error toggling view mode:', error));
+        }
+
+        btnClear.addEventListener('click', () => toggleViewMode(false));
+        btnAi.addEventListener('click', () => toggleViewMode(true));
+    </script>
+</body>
+
+</html>
