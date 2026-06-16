@@ -435,3 +435,7 @@ def gen_frames():
 def video_feed(request):
     return StreamingHttpResponse(gen_frames(),
                                  content_type='multipart/x-mixed-replace; boundary=frame')
+
+def landing(request):
+    ensure_pipeline_started()
+    return render(request, 'dashboard/landing.html')
