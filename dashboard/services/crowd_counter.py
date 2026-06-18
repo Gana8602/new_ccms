@@ -136,6 +136,8 @@ class CrowdCounterService:
             "inside": 0,
             "outside": 0,
             "total": 0, # Total heads
+            "forward": 0,
+            "backward": 0,
             "mode": "head_priority",
             "fps": 0.0,
             "density_level": "LOW",
@@ -145,6 +147,7 @@ class CrowdCounterService:
             "alerts": []
         }
         
+        self.track_history = {}
         self.crossed_ids = set()
         self.show_heatmap = False # Hidden as per user request
         self.frame_number = 0
@@ -161,7 +164,7 @@ class CrowdCounterService:
         try:
             results = self.face_future.result()
         except Exception as exc:
-            print(f"Face recognition warning: {exc}")
+            with open("rejections.log", "a") as f: f.write(f"CRASH: {exc}\n")
             results = []
         finally:
             self.face_future = None
@@ -218,20 +221,62 @@ class CrowdCounterService:
             body_detections = self.person_detector.detect(frame)
             self._submit_face_recognition(frame, head_detections)
             
-            # --- 3. Compute Stats from Heads ---
-            current_inside = 0
-            current_outside = 0
+            # --- 3. Compute Stats from Heads and Line Crossing ---
             head_centers = []
+            zones = self.roi_service.get_zones(cam_id_str)
+            
+            # Reset count for each zone in this frame
+            for z in zones:
+                z["count"] = 0
+                
+            inside_any_zone = set()
+            h, w = frame.shape[:2]
+            line_y = h // 2
             
             for det in head_detections:
                 cx, cy = det["center"]
                 head_centers.append((cx, cy))
+                det_id = det["id"]
                 
-                if self.roi_service.is_inside(cam_id_str, (cx, cy)):
-                    current_inside += 1
+                if not zones:
+                    in_some_zone = True
                 else:
-                    current_outside += 1
+                    in_some_zone = False
+                    for z in zones:
+                        if self.roi_service.is_inside_zone(z, (cx, cy)):
+                            z["count"] += 1
+                            in_some_zone = True
+                        
+                if in_some_zone:
+                    inside_any_zone.add(det_id)
+
+                # Line crossing checks
+                if det_id in self.track_history:
+                    prev_cy = self.track_history[det_id]
+                    if det_id not in self.crossed_ids:
+                        if prev_cy < line_y and cy >= line_y:
+                            # Moving from top to bottom is backward
+                            self.stats["backward"] += 1
+                            self.crossed_ids.add(det_id)
+                        elif prev_cy > line_y and cy <= line_y:
+                            # Moving from bottom to top is forward
+                            self.stats["forward"] += 1
+                            self.crossed_ids.add(det_id)
+                self.track_history[det_id] = cy
                     
+            # Clean up history for deregistered track IDs to prevent memory leaks
+            if hasattr(self.head_detector, "tracker"):
+                active_tracker_ids = {f"H_{tid}" for tid in self.head_detector.tracker.objects.keys()}
+            else:
+                active_tracker_ids = {det["id"] for det in head_detections}
+            for tid in list(self.track_history.keys()):
+                if tid not in active_tracker_ids:
+                    self.track_history.pop(tid, None)
+                    self.crossed_ids.discard(tid)
+
+            current_inside = len(inside_any_zone)
+            current_outside = len(head_detections) - current_inside
+            
             head_count = len(head_detections)
             smoothed_total = self.smoothing_service.get_smoothed_count(cam_id_str, head_count)
             
@@ -245,6 +290,19 @@ class CrowdCounterService:
             # --- 5. Drawing HUD / Annotations ---
             self.roi_service.draw_roi(frame, cam_id_str)
             
+            # Draw Horizontal Counting Line (with a clean, neon purple-pink color and label)
+            cv2.line(frame, (0, line_y), (w, line_y), (180, 100, 255), 2)
+            cv2.putText(
+                frame,
+                "COUNTING LINE (CROSS Y-MIDPOINT)",
+                (10, line_y - 8),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.4,
+                (180, 100, 255),
+                1,
+                cv2.LINE_AA,
+            )
+
             # Draw Heads (Iron Man HUD Marker)
             for det in head_detections:
                 identity_label, identity_confidence = self._identity_for_head(det["id"])
@@ -275,7 +333,14 @@ class CrowdCounterService:
                 "occupancy": occupancy,
                 "available_capacity": available,
                 "fps": round(fps, 1),
-                "alerts": alerts
+                "alerts": alerts,
+                "zones": [
+                    {
+                        "name": z["name"],
+                        "color_hex": z["color_hex"],
+                        "count": z["count"]
+                    } for z in zones
+                ]
             })
                 
             return frame

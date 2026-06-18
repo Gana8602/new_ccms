@@ -10,10 +10,20 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import sys
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Set paths for DB and Media depending on whether the app is frozen
+if getattr(sys, 'frozen', False):
+    EXE_DIR = Path(sys.executable).parent
+    DB_PATH = EXE_DIR / 'db.sqlite3'
+    MEDIA_DIR = EXE_DIR / 'media'
+else:
+    DB_PATH = BASE_DIR / 'db.sqlite3'
+    MEDIA_DIR = BASE_DIR / 'media'
 
 
 # Quick-start development settings - unsuitable for production
@@ -38,6 +48,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'dashboard',
+    'gps_mapping',
 ]
 
 MIDDLEWARE = [
@@ -76,7 +87,7 @@ WSGI_APPLICATION = 'ccms_project.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': DB_PATH,
     }
 }
 
@@ -116,6 +127,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = MEDIA_DIR

@@ -95,7 +95,7 @@ class CentroidTracker:
         return assigned_ids
 
 class HeadDetector:
-    def __init__(self, model_path="/Volumes/tridelMac/Projects/Dev/ccms/ccms/models/best_head.pt"):
+    def __init__(self, model_path="/home/sirisha/Ganapathi/new_ccms/models/best_head.pt"):
         self.device = "mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else "cpu"
         self.model_path = model_path
         self.model = None

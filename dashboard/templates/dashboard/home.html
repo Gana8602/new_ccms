@@ -6,7 +6,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CCMS Dashboard</title>
-    <link rel="stylesheet" href="{% static 'dashboard/css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'dashboard/css/style.css' %}?v=2">
 </head>
 
 <body>
@@ -22,7 +22,8 @@
                 <h1 class="app-title">CCMS</h1>
             </div>
             <ul class="nav-menu">
-                <li class="nav-item active">Dashboard</li>
+                <li class="nav-item active" id="nav-dashboard">Dashboard</li>
+                <li class="nav-item" id="nav-gcp">GCP Configuration</li>
             </ul>
         </aside>
 
@@ -35,16 +36,131 @@
                 </div>
             </header>
 
-            <!-- Grid Container -->
-            <div class="grid-container">
+            <style>
+                @keyframes pulse {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: 0.6; }
+                }
+                @keyframes ping {
+                    0% { transform: scale(1); opacity: 1; }
+                    70%, 100% { transform: scale(2.5); opacity: 0; }
+                }
+                @keyframes modalSlide {
+                    from { transform: translateY(30px); opacity: 0; }
+                    to { transform: translateY(0); opacity: 1; }
+                }
+                #zones-control-panel.show {
+                    display: flex !important;
+                    transform: translateY(0);
+                    opacity: 1 !important;
+                }
+                .btn-color:hover {
+                    transform: scale(1.15);
+                }
+                .btn-color.active {
+                    border-color: #ffffff !important;
+                    box-shadow: 0 0 12px currentColor !important;
+                }
+                #btn-zones.active, #btn-gps-inspect.active {
+                    background: #3b82f6 !important;
+                    border-color: #3b82f6 !important;
+                    color: white !important;
+                }
+                #zones-list::-webkit-scrollbar, #zone-counts-container::-webkit-scrollbar {
+                    width: 4px;
+                }
+                #zones-list::-webkit-scrollbar-track, #zone-counts-container::-webkit-scrollbar-track {
+                    background: rgba(255,255,255,0.05);
+                    border-radius: 4px;
+                }
+                #zones-list::-webkit-scrollbar-thumb, #zone-counts-container::-webkit-scrollbar-thumb {
+                    background: rgba(255,255,255,0.2);
+                    border-radius: 4px;
+                }
+                #zones-list::-webkit-scrollbar-thumb:hover, #zone-counts-container::-webkit-scrollbar-thumb:hover {
+                    background: rgba(255,255,255,0.3);
+                }
+                .gcp-marker-dot {
+                    width: 10px;
+                    height: 10px;
+                    border-radius: 50%;
+                    position: absolute;
+                    transform: translate(-50%, -50%);
+                    box-shadow: 0 0 8px currentColor;
+                    z-index: 15;
+                }
+            </style>
+
+            <!-- Grid Container (Dashboard Screen) -->
+            <div class="grid-container" id="section-dashboard">
                 <!-- Center Box -->
                 <div class="center-box" style="position: relative;">
+                    <!-- GCP Not Pointed Tag -->
+                    <span id="gcp-not-pointed-tag" style="position: absolute; top: 10px; left: 10px; z-index: 100; background: rgba(239, 68, 68, 0.9); color: white; padding: 4px 10px; border-radius: 5px; font-weight: 700; font-size: 11px; text-transform: uppercase; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 2px 10px rgba(239, 68, 68, 0.4); display: none;">GCP Not Pointed</span>
+
+                    <!-- GPS Inspection Tooltip -->
+                    <div id="gps-inspect-tooltip" style="position: absolute; display: none; background: rgba(15, 23, 42, 0.9); border: 1px solid #3b82f6; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3); border-radius: 6px; padding: 8px 12px; font-size: 11px; color: #f8fafc; z-index: 1000; font-family: monospace; pointer-events: none;"></div>
+
                     <!-- View Mode Toggle -->
-                    <div class="view-toggle-container" style="position: absolute; top: 10px; right: 10px; z-index: 100; background: rgba(0,0,0,0.6); padding: 5px; border-radius: 5px; display: flex; gap: 5px;">
-                        <button id="btn-clear-view" style="background: #2196F3; color: white; border: none; padding: 5px 15px; border-radius: 3px; cursor: pointer; font-weight: bold;">Clear View</button>
-                        <button id="btn-ai-view" style="background: transparent; color: white; border: 1px solid #555; padding: 5px 15px; border-radius: 3px; cursor: pointer;">AI View</button>
+                    <div class="view-toggle-container" style="position: absolute; top: 10px; right: 10px; z-index: 100; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: 6px 8px; border-radius: 8px; display: flex; gap: 8px; border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4); transition: all 0.3s ease;">
+                        <button id="btn-clear-view" style="background: #3b82f6; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; transition: all 0.2s ease;">Clear View</button>
+                        <button id="btn-ai-view" style="background: transparent; color: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.2); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.2s ease;">AI View</button>
+                        <button id="btn-zones" style="background: transparent; color: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.2); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px; transition: all 0.2s ease;">
+                            <span style="display:inline-block; width: 8px; height: 8px; border-radius: 50%; background: #eab308; box-shadow: 0 0 8px #eab308;"></span>
+                            Zones
+                        </button>
+                        <button id="btn-gps-inspect" style="background: transparent; color: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.2); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px; transition: all 0.2s ease;">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="color: #3b82f6; filter: drop-shadow(0 0 4px #3b82f6);"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                            GPS Inspect
+                        </button>
                     </div>
-                    <img src="{% url 'video_feed' %}" class="video-feed" alt="Camera Feed">
+
+                    <!-- Futuristic Zone Configuration Panel -->
+                    <div id="zones-control-panel" style="position: absolute; top: 55px; right: 10px; z-index: 100; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); padding: 16px; border-radius: 12px; width: 260px; display: none; flex-direction: column; gap: 14px; border: 1px solid rgba(255,255,255,0.15); color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; box-shadow: 0 10px 30px rgba(0,0,0,0.5); transform: translateY(-10px); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease; opacity: 0;">
+                        <div style="font-weight: 700; font-size: 14px; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center; text-transform: uppercase; color: #3b82f6;">
+                            <span style="display: flex; align-items: center; gap: 6px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12.97 2.59a1.5 1.5 0 00-1.94 0l-7.5 6.47a1.5 1.5 0 00-.53 1.14v8.3c0 .83.67 1.5 1.5 1.5H9v-5a1 1 0 011-1h4a1 1 0 011 1v5h3.5c.83 0 1.5-.67 1.5-1.5v-8.3c0-.43-.19-.85-.53-1.14l-7.5-6.47z"/></svg>
+                                Zone Config
+                            </span>
+                            <button id="btn-close-zones" style="background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 20px; line-height: 1; padding: 2px; transition: color 0.2s;">&times;</button>
+                        </div>
+                        
+                        <!-- Color Selector -->
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <span style="font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Select Zone Color:</span>
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: space-between; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                                <button class="btn-color" data-color="#ef4444" style="background: #ef4444; width: 24px; height: 24px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; position: relative; box-shadow: 0 0 6px rgba(239, 68, 68, 0.4); transition: all 0.2s;" title="Red"></button>
+                                <button class="btn-color" data-color="#22c55e" style="background: #22c55e; width: 24px; height: 24px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; position: relative; box-shadow: 0 0 6px rgba(34, 197, 94, 0.4); transition: all 0.2s;" title="Green"></button>
+                                <button class="btn-color" data-color="#3b82f6" style="background: #3b82f6; width: 24px; height: 24px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; position: relative; box-shadow: 0 0 6px rgba(59, 130, 246, 0.4); transition: all 0.2s;" title="Blue"></button>
+                                <button class="btn-color" data-color="#eab308" style="background: #eab308; width: 24px; height: 24px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; position: relative; box-shadow: 0 0 6px rgba(234, 179, 8, 0.4); transition: all 0.2s;" title="Yellow"></button>
+                                <button class="btn-color" data-color="#f97316" style="background: #f97316; width: 24px; height: 24px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; position: relative; box-shadow: 0 0 6px rgba(249, 115, 22, 0.4); transition: all 0.2s;" title="Orange"></button>
+                                <button class="btn-color" data-color="#a855f7" style="background: #a855f7; width: 24px; height: 24px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; position: relative; box-shadow: 0 0 6px rgba(168, 85, 247, 0.4); transition: all 0.2s;" title="Purple"></button>
+                            </div>
+                            <span id="drawing-instructions" style="font-size: 11px; color: #10b981; font-weight: 500; display: none; align-items: center; gap: 4px; justify-content: center; text-align: center; background: rgba(16, 185, 129, 0.1); padding: 4px; border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.2); animation: pulse 1.5s infinite;">
+                                <span style="display:inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; animation: ping 1.2s infinite;"></span>
+                                Draw box on video (Click &amp; Drag)
+                            </span>
+                        </div>
+                        
+                        <!-- List of Zones -->
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <span style="font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Active Zones:</span>
+                            <div id="zones-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 140px; overflow-y: auto; padding-right: 4px;">
+                                <!-- Dynamically populated -->
+                            </div>
+                        </div>
+                        
+                        <!-- Bottom Action -->
+                        <div style="display: flex; gap: 8px; margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
+                            <button id="btn-clear-all-zones" style="flex: 1; background: rgba(220, 38, 38, 0.15); color: #f87171; border: 1px solid rgba(220, 38, 38, 0.3); padding: 8px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; text-transform: uppercase; transition: all 0.2s;" onmouseover="this.style.background='rgba(220, 38, 38, 0.3)'" onmouseout="this.style.background='rgba(220, 38, 38, 0.15)'">Reset Fencing</button>
+                        </div>
+                    </div>
+
+                    <!-- Video Wrapper -->
+                    <div id="video-wrapper" style="position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;">
+                        <img src="{% url 'video_feed' %}" class="video-feed" alt="Camera Feed">
+                        <canvas id="zone-canvas" style="position: absolute; top: 0; left: 0; pointer-events: none; z-index: 10; display: block;"></canvas>
+                    </div>
                 </div>
 
                 <!-- Right Side Vertical Scrolling Container -->
@@ -61,28 +177,40 @@
                 <!-- Left Side Container -->
                 <div class="left-container">
                     <!-- Forward Count Card -->
-                    <div class="grid-box count-card">
-                        <div class="count-header">
-                            <h3 class="count-title">Forward</h3>
-                            <div class="icon-wrapper up">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="24" height="24">
+                    <div class="grid-box count-card" style="padding: 12px 16px; display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; height: 64px; min-height: 64px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div class="icon-wrapper up" style="width: 32px; height: 32px; flex: 0 0 32px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="18" height="18">
                                     <path d="M440-160v-487L216-423l-56-57 320-320 320 320-56 57-224-224v487h-80Z" />
                                 </svg>
                             </div>
+                            <h3 class="count-title" style="font-size: 12px;">Forward</h3>
                         </div>
-                        <div class="count-value" id="val-forward">0</div>
+                        <div class="count-value" id="val-forward" style="font-size: 26px;">0</div>
                     </div>
                     <!-- Backward Count Card -->
-                    <div class="grid-box count-card">
-                        <div class="count-header">
-                            <h3 class="count-title">Backward</h3>
-                            <div class="icon-wrapper down">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="24" height="24">
+                    <div class="grid-box count-card" style="padding: 12px 16px; display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; height: 64px; min-height: 64px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div class="icon-wrapper down" style="width: 32px; height: 32px; flex: 0 0 32px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="18" height="18">
                                     <path d="M440-800v487L216-537l-56 57 320 320 320-320-56-57-224 224v-487h-80Z" />
                                 </svg>
                             </div>
+                            <h3 class="count-title" style="font-size: 12px;">Backward</h3>
                         </div>
-                        <div class="count-value" id="val-backward">0</div>
+                        <div class="count-value" id="val-backward" style="font-size: 26px;">0</div>
+                    </div>
+                    <!-- Zones Counts Card (Dynamic list of drawn zones) -->
+                    <div class="grid-box count-card" style="padding: 14px 16px; display: flex; flex-direction: column; justify-content: flex-start; gap: 10px; flex-grow: 1; min-height: 120px; overflow: hidden;">
+                        <div class="count-header" style="border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 6px; margin-bottom: 2px;">
+                            <h3 class="count-title" style="font-size: 11px; display: flex; align-items: center; gap: 6px; color: #4f46e5;">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12.97 2.59a1.5 1.5 0 00-1.94 0l-7.5 6.47a1.5 1.5 0 00-.53 1.14v8.3c0 .83.67 1.5 1.5 1.5H9v-5a1 1 0 011-1h4a1 1 0 011 1v5h3.5c.83 0 1.5-.67 1.5-1.5v-8.3c0-.43-.19-.85-.53-1.14l-7.5-6.47z"/></svg>
+                                Zone Fencing
+                            </h3>
+                        </div>
+                        <div id="zone-counts-container" style="flex-grow: 1; font-size: 11px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 2px;">
+                            <div style="color: var(--text-muted); font-style: italic; font-size: 10px; text-align: center; margin-top: 10px;">No zones active</div>
+                        </div>
                     </div>
                 </div>
 
@@ -195,6 +323,193 @@
                     </div>
                 </div>
             </div>
+
+            <!-- GCP Configuration Section -->
+            <div id="section-gcp-config" style="display: none; flex-direction: column; gap: 20px; flex-grow: 1; min-height: 0; box-sizing: border-box; overflow-y: auto; padding: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.08); padding-bottom: 12px; margin-bottom: 8px;">
+                    <div>
+                        <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--text-main);">GCP Configuration</h2>
+                        <p style="margin: 4px 0 0 0; font-size: 13px; color: var(--text-muted);">Configure camera Ground Control Points (GCPs) to translate pixel clicks to GPS coordinates.</p>
+                    </div>
+                </div>
+
+                <!-- Camera Cards Grid -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
+                    <!-- Camera Config Card -->
+                    <div class="grid-box" style="padding: 16px; display: flex; flex-direction: column; gap: 12px; border-radius: 12px; background: white; border: 1px solid rgba(0,0,0,0.05); position: relative; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+                        <div style="width: 100%; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: #000; position: relative;">
+                            <img id="gcp-cam-preview" src="/video_feed/" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.85;" alt="Camera Snap">
+                            <div style="position: absolute; top: 8px; right: 8px; z-index: 10;">
+                                <span id="camera-gcp-badge" class="gallery-count" style="font-size: 10px; font-weight: 700; background: #fee2e2; color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); box-shadow: 0 0 8px rgba(239, 68, 68, 0.2); text-transform: uppercase;">Checking...</span>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                            <div>
+                                <h4 style="margin: 0; font-size: 14px; font-weight: 700; color: var(--text-main);">Camera 1</h4>
+                                <span style="font-size: 11px; color: var(--text-muted); font-weight: 500;">ID: 0</span>
+                            </div>
+                            
+                            <button id="btn-configure-gcp-modal" style="background: rgba(79, 70, 229, 0.08); border: 1px solid rgba(79, 70, 229, 0.15); color: #4f46e5; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;" title="Configure GCP Points">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GCP Settings Modal -->
+            <div id="gcp-modal" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 1000; display: none; align-items: center; justify-content: center;">
+                <div style="background: white; border-radius: 16px; width: 850px; max-width: 95vw; height: 640px; max-height: 90vh; box-shadow: 0 20px 40px rgba(0,0,0,0.3); border: 1px solid rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow: hidden; animation: modalSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1);">
+                    <!-- Modal Header -->
+                    <div style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+                        <div>
+                            <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#4f46e5"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                                Configure GCP - Camera 1
+                            </h3>
+                        </div>
+                        <button id="btn-close-gcp-modal" style="background: none; border: none; color: #94a3b8; font-size: 24px; cursor: pointer; line-height: 1; padding: 2px;">&times;</button>
+                    </div>
+
+                    <!-- Modal Body -->
+                    <div style="flex-grow: 1; display: flex; min-height: 0;">
+                        <!-- Left Column: Clickable Video Feed Preview -->
+                        <div style="flex: 1.2; padding: 20px; display: flex; flex-direction: column; gap: 10px; border-right: 1px solid #e2e8f0; background: #0f172a; justify-content: center; align-items: center; position: relative;">
+                            <span style="position: absolute; top: 10px; left: 10px; font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.6); text-transform: uppercase; background: rgba(0,0,0,0.4); padding: 4px 8px; border-radius: 4px; z-index: 10;">Interactive Click-Assist</span>
+                            <div id="modal-feed-wrapper" style="position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                                <img id="modal-gcp-feed" src="/video_feed/" style="width: 100%; height: 100%; object-fit: contain; cursor: crosshair;" alt="Feed Snap">
+                                <canvas id="modal-canvas" style="position: absolute; top: 0; left: 0; pointer-events: auto; z-index: 10; cursor: crosshair; display: block;"></canvas>
+                            </div>
+                            <span style="font-size: 11px; color: #94a3b8; text-align: center;">Select a point group, then click on the feed image to auto-capture Pixel Coordinates.</span>
+                        </div>
+
+                        <!-- Right Column: Form fields -->
+                        <div style="flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; background: #fff;">
+                            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px; font-size: 12px; font-weight: 700; color: #4f46e5; text-transform: uppercase;">
+                                <span>Active Selection:</span>
+                                <select id="active-gcp-select" style="padding: 4px 8px; font-size: 12px; font-weight: bold; border-radius: 6px; border: 1px solid #cbd5e1; outline: none; cursor: pointer; color: #1e293b;">
+                                    <option value="top_left">GCP 1 (Top Left)</option>
+                                    <option value="top_right">GCP 2 (Top Right)</option>
+                                    <option value="bottom_right">GCP 3 (Bottom Right)</option>
+                                    <option value="bottom_left">GCP 4 (Bottom Left)</option>
+                                </select>
+                            </div>
+
+                            <form id="gcp-coordinate-form" style="display: flex; flex-direction: column; gap: 12px;">
+                                <!-- 1. Top Left -->
+                                <fieldset style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; margin: 0; display: flex; flex-direction: column; gap: 8px;">
+                                    <legend style="font-size: 10px; font-weight: 700; color: #ef4444; padding: 0 6px; text-transform: uppercase;">GCP 1: Top Left</legend>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                                            <label style="font-size: 9px; font-weight: 600; color: #64748b; text-transform: uppercase;">Pixel X</label>
+                                            <input type="number" id="inp-tl-x" required style="padding: 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 12px; font-weight: bold;">
+                                        </div>
+                                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                                            <label style="font-size: 9px; font-weight: 600; color: #64748b; text-transform: uppercase;">Pixel Y</label>
+                                            <input type="number" id="inp-tl-y" required style="padding: 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 12px; font-weight: bold;">
+                                        </div>
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                                            <label style="font-size: 9px; font-weight: 600; color: #64748b; text-transform: uppercase;">Latitude</label>
+                                            <input type="number" step="any" id="inp-tl-lat" required style="padding: 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 12px;">
+                                        </div>
+                                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                                            <label style="font-size: 9px; font-weight: 600; color: #64748b; text-transform: uppercase;">Longitude</label>
+                                            <input type="number" step="any" id="inp-tl-lon" required style="padding: 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 12px;">
+                                        </div>
+                                    </div>
+                                </fieldset>
+
+                                <!-- 2. Top Right -->
+                                <fieldset style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; margin: 0; display: flex; flex-direction: column; gap: 8px;">
+                                    <legend style="font-size: 10px; font-weight: 700; color: #3b82f6; padding: 0 6px; text-transform: uppercase;">GCP 2: Top Right</legend>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                                            <label style="font-size: 9px; font-weight: 600; color: #64748b; text-transform: uppercase;">Pixel X</label>
+                                            <input type="number" id="inp-tr-x" required style="padding: 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 12px; font-weight: bold;">
+                                        </div>
+                                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                                            <label style="font-size: 9px; font-weight: 600; color: #64748b; text-transform: uppercase;">Pixel Y</label>
+                                            <input type="number" id="inp-tr-y" required style="padding: 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 12px; font-weight: bold;">
+                                        </div>
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                                            <label style="font-size: 9px; font-weight: 600; color: #64748b; text-transform: uppercase;">Latitude</label>
+                                            <input type="number" step="any" id="inp-tr-lat" required style="padding: 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 12px;">
+                                        </div>
+                                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                                            <label style="font-size: 9px; font-weight: 600; color: #64748b; text-transform: uppercase;">Longitude</label>
+                                            <input type="number" step="any" id="inp-tr-lon" required style="padding: 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 12px;">
+                                        </div>
+                                    </div>
+                                </fieldset>
+
+                                <!-- 3. Bottom Right -->
+                                <fieldset style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; margin: 0; display: flex; flex-direction: column; gap: 8px;">
+                                    <legend style="font-size: 10px; font-weight: 700; color: #22c55e; padding: 0 6px; text-transform: uppercase;">GCP 3: Bottom Right</legend>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                                            <label style="font-size: 9px; font-weight: 600; color: #64748b; text-transform: uppercase;">Pixel X</label>
+                                            <input type="number" id="inp-br-x" required style="padding: 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 12px; font-weight: bold;">
+                                        </div>
+                                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                                            <label style="font-size: 9px; font-weight: 600; color: #64748b; text-transform: uppercase;">Pixel Y</label>
+                                            <input type="number" id="inp-br-y" required style="padding: 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 12px; font-weight: bold;">
+                                        </div>
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                                            <label style="font-size: 9px; font-weight: 600; color: #64748b; text-transform: uppercase;">Latitude</label>
+                                            <input type="number" step="any" id="inp-br-lat" required style="padding: 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 12px;">
+                                        </div>
+                                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                                            <label style="font-size: 9px; font-weight: 600; color: #64748b; text-transform: uppercase;">Longitude</label>
+                                            <input type="number" step="any" id="inp-br-lon" required style="padding: 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 12px;">
+                                        </div>
+                                    </div>
+                                </fieldset>
+
+                                <!-- 4. Bottom Left -->
+                                <fieldset style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; margin: 0; display: flex; flex-direction: column; gap: 8px;">
+                                    <legend style="font-size: 10px; font-weight: 700; color: #a855f7; padding: 0 6px; text-transform: uppercase;">GCP 4: Bottom Left</legend>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                                            <label style="font-size: 9px; font-weight: 600; color: #64748b; text-transform: uppercase;">Pixel X</label>
+                                            <input type="number" id="inp-bl-x" required style="padding: 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 12px; font-weight: bold;">
+                                        </div>
+                                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                                            <label style="font-size: 9px; font-weight: 600; color: #64748b; text-transform: uppercase;">Pixel Y</label>
+                                            <input type="number" id="inp-bl-y" required style="padding: 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 12px; font-weight: bold;">
+                                        </div>
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                                            <label style="font-size: 9px; font-weight: 600; color: #64748b; text-transform: uppercase;">Latitude</label>
+                                            <input type="number" step="any" id="inp-bl-lat" required style="padding: 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 12px;">
+                                        </div>
+                                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                                            <label style="font-size: 9px; font-weight: 600; color: #64748b; text-transform: uppercase;">Longitude</label>
+                                            <input type="number" step="any" id="inp-bl-lon" required style="padding: 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 12px;">
+                                        </div>
+                                    </div>
+                                </fieldset>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Modal Footer -->
+                    <div style="padding: 12px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+                        <button id="btn-clear-gcp-config" style="background: rgba(220, 38, 38, 0.08); border: 1px solid rgba(220, 38, 38, 0.2); color: #dc2626; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s;">Clear Configuration</button>
+                        <div style="display: flex; gap: 10px;">
+                            <button id="btn-cancel-gcp-modal" style="background: white; border: 1px solid #cbd5e1; color: #475569; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s;">Cancel</button>
+                            <button id="btn-save-gcp-config" style="background: #4f46e5; border: none; color: white; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3); transition: all 0.2s;">Save Configuration</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 
@@ -216,6 +531,37 @@
                     document.getElementById('val-density-level').innerText = data.density_level;
                     document.getElementById('val-occupancy').innerText = data.occupancy;
                     
+                    // Update Inside Fencing individual zone counts
+                    const zoneCountsContainer = document.getElementById('zone-counts-container');
+                    zoneCountsContainer.innerHTML = '';
+                    if (data.zones && data.zones.length > 0) {
+                        data.zones.forEach(zone => {
+                            const zoneRow = document.createElement('div');
+                            zoneRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
+                            
+                            const nameSpan = document.createElement('span');
+                            nameSpan.style.cssText = 'display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--text-main);';
+                            
+                            const colorDot = document.createElement('span');
+                            colorDot.style.cssText = `width: 8px; height: 8px; border-radius: 50%; background-color: ${zone.color_hex}; display: inline-block; box-shadow: 0 0 6px ${zone.color_hex};`;
+                            
+                            const nameText = document.createTextNode(zone.name);
+                            nameSpan.appendChild(colorDot);
+                            nameSpan.appendChild(nameText);
+                            
+                            const countSpan = document.createElement('span');
+                            countSpan.style.cssText = 'font-weight: 700; font-size: 12px; color: var(--text-main);';
+                            countSpan.innerText = zone.count;
+                            
+                            zoneRow.appendChild(nameSpan);
+                            zoneRow.appendChild(countSpan);
+                            
+                            zoneCountsContainer.appendChild(zoneRow);
+                        });
+                    } else {
+                        zoneCountsContainer.innerHTML = '<div style="color: var(--text-muted); font-style: italic; font-size: 10px; text-align: center;">No zones active</div>';
+                    }
+
                     // Update Alerts
                     const alertBanner = document.getElementById('alert-banner');
                     if (data.alerts && data.alerts.length > 0) {
@@ -359,6 +705,958 @@
 
         btnClear.addEventListener('click', () => toggleViewMode(false));
         btnAi.addEventListener('click', () => toggleViewMode(true));
+
+        // --- Canvas & Zone configuration logic ---
+        const zoneCanvas = document.getElementById('zone-canvas');
+        const ctx = zoneCanvas.getContext('2d');
+        const videoImg = document.querySelector('.video-feed');
+        const btnZones = document.getElementById('btn-zones');
+        const zonesPanel = document.getElementById('zones-control-panel');
+        const btnCloseZones = document.getElementById('btn-close-zones');
+        const btnClearAllZones = document.getElementById('btn-clear-all-zones');
+        const drawingInstructions = document.getElementById('drawing-instructions');
+
+        let activeZones = [];
+        let isDrawingMode = false;
+        let selectedColor = null;
+        let isDrawing = false;
+        let startX = 0, startY = 0;
+        let currentX = 0, currentY = 0;
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        function resizeCanvas() {
+            if (!videoImg.complete || videoImg.naturalWidth === 0) {
+                setTimeout(resizeCanvas, 100);
+                return;
+            }
+            
+            const rect = videoImg.getBoundingClientRect();
+            const imgRatio = videoImg.naturalWidth / videoImg.naturalHeight;
+            const containerRatio = rect.width / rect.height;
+            
+            let canvasW, canvasH, canvasLeft, canvasTop;
+            
+            if (containerRatio > imgRatio) {
+                canvasH = rect.height;
+                canvasW = canvasH * imgRatio;
+                canvasLeft = (rect.width - canvasW) / 2;
+                canvasTop = 0;
+            } else {
+                canvasW = rect.width;
+                canvasH = canvasW / imgRatio;
+                canvasLeft = 0;
+                canvasTop = (rect.height - canvasH) / 2;
+            }
+            
+            zoneCanvas.style.width = `${canvasW}px`;
+            zoneCanvas.style.height = `${canvasH}px`;
+            zoneCanvas.style.left = `${canvasLeft}px`;
+            zoneCanvas.style.top = `${canvasTop}px`;
+            
+            zoneCanvas.width = videoImg.naturalWidth;
+            zoneCanvas.height = videoImg.naturalHeight;
+            
+            drawZones();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        videoImg.addEventListener('load', resizeCanvas);
+        setInterval(resizeCanvas, 2000);
+
+        // Toggle Zones Panel
+        btnZones.addEventListener('click', () => {
+            const isShowing = zonesPanel.classList.contains('show');
+            if (isShowing) {
+                zonesPanel.classList.remove('show');
+                btnZones.classList.remove('active');
+                setTimeout(() => zonesPanel.style.display = 'none', 300);
+                exitDrawingMode();
+            } else {
+                // Deactivate GPS Inspect Mode if active
+                if (isGpsInspectMode) {
+                    deactivateGpsInspectMode();
+                }
+                zonesPanel.style.display = 'flex';
+                zonesPanel.offsetHeight;
+                zonesPanel.classList.add('show');
+                btnZones.classList.add('active');
+                loadZonesFromBackend();
+                resizeCanvas();
+            }
+        });
+
+        btnCloseZones.addEventListener('click', () => {
+            zonesPanel.classList.remove('show');
+            btnZones.classList.remove('active');
+            setTimeout(() => zonesPanel.style.display = 'none', 300);
+            exitDrawingMode();
+        });
+
+        // Color buttons event handler
+        document.querySelectorAll('.btn-color').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const color = btn.getAttribute('data-color');
+                
+                if (selectedColor === color) {
+                    exitDrawingMode();
+                    return;
+                }
+                
+                selectedColor = color;
+                document.querySelectorAll('.btn-color').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                isDrawingMode = true;
+                zoneCanvas.style.pointerEvents = 'auto';
+                zoneCanvas.style.cursor = 'crosshair';
+                drawingInstructions.style.display = 'flex';
+            });
+        });
+
+        function exitDrawingMode() {
+            selectedColor = null;
+            isDrawingMode = false;
+            zoneCanvas.style.pointerEvents = 'none';
+            zoneCanvas.style.cursor = 'default';
+            document.querySelectorAll('.btn-color').forEach(b => b.classList.remove('active'));
+            drawingInstructions.style.display = 'none';
+            isDrawing = false;
+            drawZones();
+        }
+
+        // Mouse events for drawing on canvas
+        zoneCanvas.addEventListener('mousedown', (e) => {
+            if (!isDrawingMode || !selectedColor) return;
+            isDrawing = true;
+            const rect = zoneCanvas.getBoundingClientRect();
+            
+            startX = (e.clientX - rect.left) * (zoneCanvas.width / rect.width);
+            startY = (e.clientY - rect.top) * (zoneCanvas.height / rect.height);
+            currentX = startX;
+            currentY = startY;
+        });
+
+        zoneCanvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            const rect = zoneCanvas.getBoundingClientRect();
+            currentX = (e.clientX - rect.left) * (zoneCanvas.width / rect.width);
+            currentY = (e.clientY - rect.top) * (zoneCanvas.height / rect.height);
+            drawZones();
+        });
+
+        zoneCanvas.addEventListener('mouseup', () => {
+            if (!isDrawing) return;
+            isDrawing = false;
+            
+            const xMin = Math.min(startX, currentX);
+            const yMin = Math.min(startY, currentY);
+            const xMax = Math.max(startX, currentX);
+            const yMax = Math.max(startY, currentY);
+            
+            const w = xMax - xMin;
+            const h = yMax - yMin;
+            
+            if (w > 15 && h > 15) {
+                const zoneNum = activeZones.length + 1;
+                const newZone = {
+                    name: `Zone ${zoneNum}`,
+                    color_hex: selectedColor,
+                    points: [
+                        [Math.round(xMin), Math.round(yMin)],
+                        [Math.round(xMax), Math.round(yMin)],
+                        [Math.round(xMax), Math.round(yMax)],
+                        [Math.round(xMin), Math.round(yMax)]
+                    ]
+                };
+                activeZones.push(newZone);
+                saveZonesToBackend();
+            }
+            
+            exitDrawingMode();
+        });
+
+        // Touch support for mobile drawing
+        zoneCanvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length !== 1) return;
+            if (!isDrawingMode || !selectedColor) return;
+            isDrawing = true;
+            const rect = zoneCanvas.getBoundingClientRect();
+            startX = (e.touches[0].clientX - rect.left) * (zoneCanvas.width / rect.width);
+            startY = (e.touches[0].clientY - rect.top) * (zoneCanvas.height / rect.height);
+            currentX = startX;
+            currentY = startY;
+        });
+
+        zoneCanvas.addEventListener('touchmove', (e) => {
+            if (!isDrawing || e.touches.length !== 1) return;
+            const rect = zoneCanvas.getBoundingClientRect();
+            currentX = (e.touches[0].clientX - rect.left) * (zoneCanvas.width / rect.width);
+            currentY = (e.touches[0].clientY - rect.top) * (zoneCanvas.height / rect.height);
+            drawZones();
+        });
+
+        zoneCanvas.addEventListener('touchend', () => {
+            if (!isDrawing) return;
+            isDrawing = false;
+            
+            const xMin = Math.min(startX, currentX);
+            const yMin = Math.min(startY, currentY);
+            const xMax = Math.max(startX, currentX);
+            const yMax = Math.max(startY, currentY);
+            
+            const w = xMax - xMin;
+            const h = yMax - yMin;
+            
+            if (w > 15 && h > 15) {
+                const zoneNum = activeZones.length + 1;
+                const newZone = {
+                    name: `Zone ${zoneNum}`,
+                    color_hex: selectedColor,
+                    points: [
+                        [Math.round(xMin), Math.round(yMin)],
+                        [Math.round(xMax), Math.round(yMin)],
+                        [Math.round(xMax), Math.round(yMax)],
+                        [Math.round(xMin), Math.round(yMax)]
+                    ]
+                };
+                activeZones.push(newZone);
+                saveZonesToBackend();
+            }
+            
+            exitDrawingMode();
+        });
+
+        function drawZones() {
+            ctx.clearRect(0, 0, zoneCanvas.width, zoneCanvas.height);
+            
+            // 1. Draw Saved Zones
+            activeZones.forEach(zone => {
+                const pts = zone.points;
+                if (pts && pts.length === 4) {
+                    ctx.strokeStyle = zone.color_hex;
+                    ctx.lineWidth = 3;
+                    ctx.lineJoin = 'round';
+                    
+                    const x = pts[0][0];
+                    const y = pts[0][1];
+                    const w = pts[2][0] - pts[0][0];
+                    const h = pts[2][1] - pts[0][1];
+                    ctx.strokeRect(x, y, w, h);
+                    
+                    ctx.fillStyle = zone.color_hex + '15';
+                    ctx.fillRect(x, y, w, h);
+                    
+                    ctx.strokeStyle = zone.color_hex + '50';
+                    ctx.lineWidth = 6;
+                    ctx.strokeRect(x, y, w, h);
+                    
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 13px system-ui, sans-serif';
+                    const textY = Math.max(16, y - 8);
+                    
+                    const textWidth = ctx.measureText(zone.name).width;
+                    ctx.fillStyle = '#0f172a';
+                    ctx.beginPath();
+                    ctx.roundRect(x, textY - 14, textWidth + 12, 20, 4);
+                    ctx.fill();
+                    ctx.strokeStyle = zone.color_hex;
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                    
+                    ctx.fillStyle = '#f8fafc';
+                    ctx.fillText(zone.name, x + 6, textY);
+                }
+            });
+            
+            // 2. Draw Active Drag Preview
+            if (isDrawing && selectedColor) {
+                ctx.strokeStyle = selectedColor;
+                ctx.lineWidth = 3;
+                ctx.lineJoin = 'round';
+                ctx.strokeRect(startX, startY, currentX - startX, currentY - startY);
+                
+                ctx.fillStyle = selectedColor + '1a';
+                ctx.fillRect(startX, startY, currentX - startX, currentY - startY);
+            }
+
+            // 3. Draw GCP Bounding Area Polygon if configured
+            if (gcpConfig && gcpConfig.gcps) {
+                const gcps = gcpConfig.gcps;
+                const pts = [gcps.top_left, gcps.top_right, gcps.bottom_right, gcps.bottom_left];
+                
+                ctx.strokeStyle = '#06b6d4'; // Cyan neon color
+                ctx.lineWidth = 2.5;
+                ctx.setLineDash([6, 6]);
+                ctx.lineJoin = 'round';
+                
+                ctx.beginPath();
+                ctx.moveTo(pts[0].x, pts[0].y);
+                ctx.lineTo(pts[1].x, pts[1].y);
+                ctx.lineTo(pts[2].x, pts[2].y);
+                ctx.lineTo(pts[3].x, pts[3].y);
+                ctx.closePath();
+                ctx.stroke();
+                
+                ctx.fillStyle = 'rgba(6, 182, 212, 0.08)'; // Transparent cyan fill
+                ctx.fill();
+                ctx.setLineDash([]); // Reset line dash
+                
+                // Draw small corner markers
+                const cornerColors = ['#ef4444', '#3b82f6', '#22c55e', '#a855f7'];
+                pts.forEach((pt, i) => {
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, 5, 0, 2 * Math.PI);
+                    ctx.fillStyle = cornerColors[i];
+                    ctx.fill();
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                });
+                
+                // Render Area & Perimeter metrics text at top left corner of the polygon
+                const minX = Math.min(pts[0].x, pts[3].x);
+                const minY = Math.min(pts[0].y, pts[1].y);
+                const textY = Math.max(20, minY - 10);
+                
+                const statsText = `GCP Area: ${gcpConfig.area_m2.toFixed(1)}m² (${gcpConfig.area_hectare.toFixed(4)}ha) | Perim: ${gcpConfig.perimeter_m.toFixed(1)}m`;
+                ctx.font = 'bold 11px monospace';
+                const textWidth = ctx.measureText(statsText).width;
+                
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+                ctx.beginPath();
+                ctx.roundRect(minX, textY - 14, textWidth + 12, 20, 4);
+                ctx.fill();
+                ctx.strokeStyle = '#06b6d4';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                
+                ctx.fillStyle = '#06b6d4';
+                ctx.fillText(statsText, minX + 6, textY);
+            }
+
+            // 4. Draw GPS inspection target target/crosshair
+            if (isGpsInspectMode && clickedGpsPoint) {
+                const cx = clickedGpsPoint.x;
+                const cy = clickedGpsPoint.y;
+                
+                // Crosshair lines
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 1.5;
+                
+                ctx.beginPath();
+                ctx.moveTo(cx - 20, cy);
+                ctx.lineTo(cx + 20, cy);
+                ctx.moveTo(cx, cy - 20);
+                ctx.lineTo(cx, cy + 20);
+                ctx.stroke();
+                
+                // Pulsing rings
+                ctx.beginPath();
+                ctx.arc(cx, cy, 6, 0, 2 * Math.PI);
+                ctx.fillStyle = '#3b82f6';
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.arc(cx, cy, 14, 0, 2 * Math.PI);
+                ctx.strokeStyle = 'rgba(59, 130, 246, 0.4)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+
+        function loadZonesFromBackend() {
+            fetch('/api/zones/')
+                .then(response => response.json())
+                .then(data => {
+                    activeZones = data.zones || [];
+                    updateZonesUI();
+                    drawZones();
+                })
+                .catch(error => console.error('Error loading zones:', error));
+        }
+
+        function saveZonesToBackend() {
+            fetch('/api/zones/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ zones: activeZones })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    updateZonesUI();
+                    drawZones();
+                    updateCounts();
+                }
+            })
+            .catch(error => console.error('Error saving zones:', error));
+        }
+
+        function updateZonesUI() {
+            const listEl = document.getElementById('zones-list');
+            listEl.innerHTML = '';
+            
+            if (activeZones.length === 0) {
+                listEl.innerHTML = '<span style="font-size: 11px; color: #64748b; font-style: italic; text-align: center; padding: 10px 0; width:100%;">No custom zones defined.</span>';
+                return;
+            }
+            
+            activeZones.forEach((zone, idx) => {
+                const item = document.createElement('div');
+                item.style.cssText = 'display: flex; justify-content: space-between; align-items: center; background: rgba(30, 41, 59, 0.4); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); border-left: 4px solid ' + zone.color_hex + '; box-shadow: 0 2px 4px rgba(0,0,0,0.1);';
+                
+                const label = document.createElement('span');
+                label.textContent = zone.name;
+                label.style.cssText = 'font-size: 12px; font-weight: 600; color: #f1f5f9;';
+                
+                const btnDelete = document.createElement('button');
+                btnDelete.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>';
+                btnDelete.style.cssText = 'background: none; border: none; color: #ef4444; opacity: 0.7; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; padding: 4px; border-radius: 4px;';
+                btnDelete.onmouseover = () => btnDelete.style.opacity = '1';
+                btnDelete.onmouseout = () => btnDelete.style.opacity = '0.7';
+                
+                btnDelete.onclick = () => {
+                    activeZones.splice(idx, 1);
+                    activeZones.forEach((z, i) => {
+                        z.name = `Zone ${i + 1}`;
+                    });
+                    saveZonesToBackend();
+                };
+                
+                item.appendChild(label);
+                item.appendChild(btnDelete);
+                listEl.appendChild(item);
+            });
+        }
+
+        btnClearAllZones.addEventListener('click', () => {
+            activeZones = [];
+            saveZonesToBackend();
+            exitDrawingMode();
+        });
+
+        // --- GCP Configuration & GPS Inspection Module Logic ---
+        let gcpConfig = null;
+        let isGpsInspectMode = false;
+        let clickedGpsPoint = null;
+
+        const navDashboard = document.getElementById('nav-dashboard');
+        const navGcp = document.getElementById('nav-gcp');
+        const sectionDashboard = document.getElementById('section-dashboard');
+        const sectionGcpConfig = document.getElementById('section-gcp-config');
+
+        // Tab Switching
+        navDashboard.addEventListener('click', () => {
+            navDashboard.classList.add('active');
+            navGcp.classList.remove('active');
+            sectionDashboard.style.display = 'grid';
+            sectionGcpConfig.style.display = 'none';
+            if (isGpsInspectMode) {
+                deactivateGpsInspectMode();
+            }
+            resizeCanvas();
+        });
+
+        navGcp.addEventListener('click', () => {
+            navGcp.classList.add('active');
+            navDashboard.classList.remove('active');
+            sectionDashboard.style.display = 'none';
+            sectionGcpConfig.style.display = 'flex';
+            if (isGpsInspectMode) {
+                deactivateGpsInspectMode();
+            }
+            resizeModalCanvas();
+        });
+
+        // Load camera GCP config and update status tags
+        function fetchGCPConfig() {
+            fetch('/api/gcp/0/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.configured) {
+                        gcpConfig = data;
+                        updateGCPBadge(true);
+                        document.getElementById('gcp-not-pointed-tag').style.display = 'none';
+                    } else {
+                        gcpConfig = null;
+                        updateGCPBadge(false);
+                        document.getElementById('gcp-not-pointed-tag').style.display = 'block';
+                    }
+                    drawZones();
+                })
+                .catch(error => console.error('Error fetching GCP config:', error));
+        }
+
+        function updateGCPBadge(configured) {
+            const badge = document.getElementById('camera-gcp-badge');
+            if (configured) {
+                badge.innerText = 'Configured';
+                badge.style.background = '#d1fae5';
+                badge.style.color = '#065f46';
+                badge.style.borderColor = 'rgba(6, 95, 70, 0.2)';
+                badge.style.boxShadow = '0 0 8px rgba(6, 95, 70, 0.2)';
+            } else {
+                badge.innerText = 'Not Configured';
+                badge.style.background = '#fee2e2';
+                badge.style.color = '#ef4444';
+                badge.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+                badge.style.boxShadow = '0 0 8px rgba(239, 68, 68, 0.2)';
+            }
+        }
+
+        // Modal Controls
+        const gcpModal = document.getElementById('gcp-modal');
+        const modalCanvas = document.getElementById('modal-canvas');
+        const modalCtx = modalCanvas.getContext('2d');
+        const modalGcpFeed = document.getElementById('modal-gcp-feed');
+        const btnConfigureGcp = document.getElementById('btn-configure-gcp-modal');
+        const btnCloseModal = document.getElementById('btn-close-gcp-modal');
+        const btnCancelModal = document.getElementById('btn-cancel-gcp-modal');
+        const btnSaveGcp = document.getElementById('btn-save-gcp-config');
+        const btnClearGcp = document.getElementById('btn-clear-gcp-config');
+
+        function openGCPModal() {
+            gcpModal.style.display = 'flex';
+            document.getElementById('active-gcp-select').selectedIndex = 0;
+            
+            fetch('/api/gcp/0/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.configured) {
+                        document.getElementById('inp-tl-x').value = data.gcps.top_left.x;
+                        document.getElementById('inp-tl-y').value = data.gcps.top_left.y;
+                        document.getElementById('inp-tl-lat').value = data.gcps.top_left.lat;
+                        document.getElementById('inp-tl-lon').value = data.gcps.top_left.lon;
+                        
+                        document.getElementById('inp-tr-x').value = data.gcps.top_right.x;
+                        document.getElementById('inp-tr-y').value = data.gcps.top_right.y;
+                        document.getElementById('inp-tr-lat').value = data.gcps.top_right.lat;
+                        document.getElementById('inp-tr-lon').value = data.gcps.top_right.lon;
+                        
+                        document.getElementById('inp-br-x').value = data.gcps.bottom_right.x;
+                        document.getElementById('inp-br-y').value = data.gcps.bottom_right.y;
+                        document.getElementById('inp-br-lat').value = data.gcps.bottom_right.lat;
+                        document.getElementById('inp-br-lon').value = data.gcps.bottom_right.lon;
+                        
+                        document.getElementById('inp-bl-x').value = data.gcps.bottom_left.x;
+                        document.getElementById('inp-bl-y').value = data.gcps.bottom_left.y;
+                        document.getElementById('inp-bl-lat').value = data.gcps.bottom_left.lat;
+                        document.getElementById('inp-bl-lon').value = data.gcps.bottom_left.lon;
+                    } else {
+                        document.getElementById('gcp-coordinate-form').reset();
+                    }
+                    setTimeout(resizeModalCanvas, 80);
+                })
+                .catch(error => {
+                    console.error('Error opening GCP modal:', error);
+                    document.getElementById('gcp-coordinate-form').reset();
+                    setTimeout(resizeModalCanvas, 80);
+                });
+        }
+
+        function closeModalFunc() {
+            gcpModal.style.display = 'none';
+        }
+
+        btnConfigureGcp.addEventListener('click', openGCPModal);
+        btnCloseModal.addEventListener('click', closeModalFunc);
+        btnCancelModal.addEventListener('click', closeModalFunc);
+
+        // Resize modal canvas relative to modal snap image object-fit contain
+        function resizeModalCanvas() {
+            if (gcpModal.style.display === 'none') return;
+            if (!modalGcpFeed.complete || modalGcpFeed.naturalWidth === 0) {
+                setTimeout(resizeModalCanvas, 100);
+                return;
+            }
+            
+            const rect = modalGcpFeed.getBoundingClientRect();
+            const imgRatio = modalGcpFeed.naturalWidth / modalGcpFeed.naturalHeight;
+            const containerRatio = rect.width / rect.height;
+            
+            let canvasW, canvasH, canvasLeft, canvasTop;
+            
+            if (containerRatio > imgRatio) {
+                canvasH = rect.height;
+                canvasW = canvasH * imgRatio;
+                canvasLeft = (rect.width - canvasW) / 2;
+                canvasTop = 0;
+            } else {
+                canvasW = rect.width;
+                canvasH = canvasW / imgRatio;
+                canvasLeft = 0;
+                canvasTop = (rect.height - canvasH) / 2;
+            }
+            
+            modalCanvas.style.width = `${canvasW}px`;
+            modalCanvas.style.height = `${canvasH}px`;
+            modalCanvas.style.left = `${canvasLeft}px`;
+            modalCanvas.style.top = `${canvasTop}px`;
+            
+            modalCanvas.width = modalGcpFeed.naturalWidth;
+            modalCanvas.height = modalGcpFeed.naturalHeight;
+            
+            drawModalMarkers();
+        }
+
+        // Draw visual feedback circles on modal snap image canvas
+        function drawModalMarkers() {
+            if (gcpModal.style.display === 'none') return;
+            modalCtx.clearRect(0, 0, modalCanvas.width, modalCanvas.height);
+            
+            const points = {
+                top_left: {
+                    x: parseFloat(document.getElementById('inp-tl-x').value),
+                    y: parseFloat(document.getElementById('inp-tl-y').value),
+                    color: '#ef4444',
+                    label: 'GCP 1 (TL)'
+                },
+                top_right: {
+                    x: parseFloat(document.getElementById('inp-tr-x').value),
+                    y: parseFloat(document.getElementById('inp-tr-y').value),
+                    color: '#3b82f6',
+                    label: 'GCP 2 (TR)'
+                },
+                bottom_right: {
+                    x: parseFloat(document.getElementById('inp-br-x').value),
+                    y: parseFloat(document.getElementById('inp-br-y').value),
+                    color: '#22c55e',
+                    label: 'GCP 3 (BR)'
+                },
+                bottom_left: {
+                    x: parseFloat(document.getElementById('inp-bl-x').value),
+                    y: parseFloat(document.getElementById('inp-bl-y').value),
+                    color: '#a855f7',
+                    label: 'GCP 4 (BL)'
+                }
+            };
+            
+            const validPoints = [];
+            const keys = ['top_left', 'top_right', 'bottom_right', 'bottom_left'];
+            
+            keys.forEach(key => {
+                const pt = points[key];
+                if (!isNaN(pt.x) && !isNaN(pt.y)) {
+                    validPoints.push(pt);
+                }
+            });
+            
+            // Connect polygon overlay line if 4 coordinates are defined
+            if (validPoints.length === 4) {
+                modalCtx.strokeStyle = 'rgba(6, 182, 212, 0.7)';
+                modalCtx.lineWidth = 2;
+                modalCtx.setLineDash([5, 5]);
+                modalCtx.beginPath();
+                modalCtx.moveTo(points.top_left.x, points.top_left.y);
+                modalCtx.lineTo(points.top_right.x, points.top_right.y);
+                modalCtx.lineTo(points.bottom_right.x, points.bottom_right.y);
+                modalCtx.lineTo(points.bottom_left.x, points.bottom_left.y);
+                modalCtx.closePath();
+                modalCtx.stroke();
+                
+                modalCtx.fillStyle = 'rgba(6, 182, 212, 0.1)';
+                modalCtx.fill();
+                modalCtx.setLineDash([]);
+            }
+            
+            // Draw targeting circles & labels
+            keys.forEach(key => {
+                const pt = points[key];
+                if (!isNaN(pt.x) && !isNaN(pt.y)) {
+                    modalCtx.beginPath();
+                    modalCtx.arc(pt.x, pt.y, 8, 0, 2 * Math.PI);
+                    modalCtx.fillStyle = pt.color;
+                    modalCtx.fill();
+                    modalCtx.strokeStyle = '#ffffff';
+                    modalCtx.lineWidth = 2;
+                    modalCtx.stroke();
+                    
+                    modalCtx.beginPath();
+                    modalCtx.arc(pt.x, pt.y, 14, 0, 2 * Math.PI);
+                    modalCtx.strokeStyle = pt.color + '40';
+                    modalCtx.lineWidth = 2;
+                    modalCtx.stroke();
+                    
+                    const labelText = pt.label;
+                    modalCtx.font = 'bold 12px monospace';
+                    const textWidth = modalCtx.measureText(labelText).width;
+                    
+                    modalCtx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+                    modalCtx.beginPath();
+                    modalCtx.roundRect(pt.x + 12, pt.y - 10, textWidth + 8, 18, 4);
+                    modalCtx.fill();
+                    modalCtx.strokeStyle = pt.color;
+                    modalCtx.lineWidth = 1;
+                    modalCtx.stroke();
+                    
+                    modalCtx.fillStyle = '#f8fafc';
+                    modalCtx.fillText(labelText, pt.x + 16, pt.y + 3);
+                }
+            });
+        }
+
+        // Live input updates sync
+        const modalInputs = [
+            'inp-tl-x', 'inp-tl-y', 'inp-tl-lat', 'inp-tl-lon',
+            'inp-tr-x', 'inp-tr-y', 'inp-tr-lat', 'inp-tr-lon',
+            'inp-br-x', 'inp-br-y', 'inp-br-lat', 'inp-br-lon',
+            'inp-bl-x', 'inp-bl-y', 'inp-bl-lat', 'inp-bl-lon'
+        ];
+        modalInputs.forEach(id => {
+            document.getElementById(id).addEventListener('input', drawModalMarkers);
+        });
+
+        // Canvas clicks register on the active point coordinates selection group
+        function handleModalCanvasClick(clientX, clientY) {
+            const rect = modalCanvas.getBoundingClientRect();
+            const clickX = (clientX - rect.left) * (modalCanvas.width / rect.width);
+            const clickY = (clientY - rect.top) * (modalCanvas.height / rect.height);
+            
+            const activeKey = document.getElementById('active-gcp-select').value;
+            let idX, idY;
+            if (activeKey === 'top_left') {
+                idX = 'inp-tl-x'; idY = 'inp-tl-y';
+            } else if (activeKey === 'top_right') {
+                idX = 'inp-tr-x'; idY = 'inp-tr-y';
+            } else if (activeKey === 'bottom_right') {
+                idX = 'inp-br-x'; idY = 'inp-br-y';
+            } else if (activeKey === 'bottom_left') {
+                idX = 'inp-bl-x'; idY = 'inp-bl-y';
+            }
+            
+            document.getElementById(idX).value = Math.round(clickX);
+            document.getElementById(idY).value = Math.round(clickY);
+            
+            drawModalMarkers();
+            
+            // Advance dropdown index automatically for seamless workflow
+            const select = document.getElementById('active-gcp-select');
+            const currentIndex = select.selectedIndex;
+            if (currentIndex < select.options.length - 1) {
+                select.selectedIndex = currentIndex + 1;
+            }
+        }
+
+        modalCanvas.addEventListener('mousedown', (e) => {
+            handleModalCanvasClick(e.clientX, e.clientY);
+        });
+
+        modalCanvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length !== 1) return;
+            e.preventDefault();
+            handleModalCanvasClick(e.touches[0].clientX, e.touches[0].clientY);
+        });
+
+        // Save action
+        btnSaveGcp.addEventListener('click', () => {
+            const getVal = (id) => parseFloat(document.getElementById(id).value);
+            
+            const tl_x = getVal('inp-tl-x'), tl_y = getVal('inp-tl-y'), tl_lat = getVal('inp-tl-lat'), tl_lon = getVal('inp-tl-lon');
+            const tr_x = getVal('inp-tr-x'), tr_y = getVal('inp-tr-y'), tr_lat = getVal('inp-tr-lat'), tr_lon = getVal('inp-tr-lon');
+            const br_x = getVal('inp-br-x'), br_y = getVal('inp-br-y'), br_lat = getVal('inp-br-lat'), br_lon = getVal('inp-br-lon');
+            const bl_x = getVal('inp-bl-x'), bl_y = getVal('inp-bl-y'), bl_lat = getVal('inp-bl-lat'), bl_lon = getVal('inp-bl-lon');
+            
+            if ([tl_x, tl_y, tl_lat, tl_lon, tr_x, tr_y, tr_lat, tr_lon, br_x, br_y, br_lat, br_lon, bl_x, bl_y, bl_lat, bl_lon].some(isNaN)) {
+                alert("Please fill in valid numerical values for all 4 GCP coordinates (pixel coordinates and GPS positions).");
+                return;
+            }
+            
+            const payload = {
+                camera_id: "0",
+                camera_name: "Camera 1",
+                gcps: {
+                    top_left: { x: tl_x, y: tl_y, lat: tl_lat, lon: tl_lon },
+                    top_right: { x: tr_x, y: tr_y, lat: tr_lat, lon: tr_lon },
+                    bottom_right: { x: br_x, y: br_y, lat: br_lat, lon: br_lon },
+                    bottom_left: { x: bl_x, y: bl_y, lat: bl_lat, lon: bl_lon }
+                }
+            };
+            
+            fetch('/api/gcp/save/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert("GCP configuration successfully updated. Bounding Area: " + data.area_m2.toFixed(2) + " m²");
+                    gcpModal.style.display = 'none';
+                    fetchGCPConfig();
+                } else {
+                    alert("Error saving config: " + data.message);
+                }
+            })
+            .catch(error => {
+                console.error("Error saving GCP config:", error);
+                alert("Server error. Please try again.");
+            });
+        });
+
+        // Clear action
+        btnClearGcp.addEventListener('click', () => {
+            if (!confirm("Are you sure you want to clear the GCP mapping coordinates? Real-world coordinates and metric polygons will be disabled.")) {
+                return;
+            }
+            
+            fetch('/api/gcp/save/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ camera_id: "0", action: "clear" })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert("GCP configuration successfully cleared.");
+                    document.getElementById('gcp-coordinate-form').reset();
+                    drawModalMarkers();
+                    gcpModal.style.display = 'none';
+                    fetchGCPConfig();
+                } else {
+                    alert("Error clearing configuration: " + data.message);
+                }
+            })
+            .catch(error => {
+                console.error("Error clearing configuration:", error);
+                alert("Server error. Please try again.");
+            });
+        });
+
+        // GPS Inspection Mode
+        const btnGpsInspect = document.getElementById('btn-gps-inspect');
+        
+        btnGpsInspect.addEventListener('click', () => {
+            if (!gcpConfig) {
+                alert("GCP is not configured for this camera! Please configure Ground Control Points first in the GCP Configuration section.");
+                return;
+            }
+            
+            isGpsInspectMode = !isGpsInspectMode;
+            
+            if (isGpsInspectMode) {
+                // Deactivate Zones control panel if open
+                if (zonesPanel.classList.contains('show')) {
+                    zonesPanel.classList.remove('show');
+                    btnZones.classList.remove('active');
+                    setTimeout(() => zonesPanel.style.display = 'none', 300);
+                    exitDrawingMode();
+                }
+                
+                btnGpsInspect.classList.add('active');
+                zoneCanvas.style.pointerEvents = 'auto';
+                zoneCanvas.style.cursor = 'help';
+            } else {
+                deactivateGpsInspectMode();
+            }
+        });
+
+        function deactivateGpsInspectMode() {
+            isGpsInspectMode = false;
+            btnGpsInspect.classList.remove('active');
+            zoneCanvas.style.pointerEvents = 'none';
+            zoneCanvas.style.cursor = 'default';
+            document.getElementById('gps-inspect-tooltip').style.display = 'none';
+            clickedGpsPoint = null;
+            drawZones();
+        }
+
+        // Handle clicks on dashboard canvas during GPS Inspect Mode
+        zoneCanvas.addEventListener('click', (e) => {
+            if (!isGpsInspectMode || !gcpConfig) return;
+            
+            const rect = zoneCanvas.getBoundingClientRect();
+            const clickX = (e.clientX - rect.left) * (zoneCanvas.width / rect.width);
+            const clickY = (e.clientY - rect.top) * (zoneCanvas.height / rect.height);
+            
+            const tooltip = document.getElementById('gps-inspect-tooltip');
+            
+            fetch('/api/gcp/pixel-to-gps/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    camera_id: "0",
+                    x: Math.round(clickX),
+                    y: Math.round(clickY)
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.latitude !== undefined && data.longitude !== undefined) {
+                    const lat = data.latitude;
+                    const lon = data.longitude;
+                    
+                    console.log(`[GPS Inspect] Click: (${Math.round(clickX)}, ${Math.round(clickY)}) -> Lat/Lon: (${lat.toFixed(7)}, ${lon.toFixed(7)})`);
+                    
+                    tooltip.innerHTML = `
+                        <div style="font-weight: 700; color: #3b82f6; border-bottom: 1px solid rgba(59, 130, 246, 0.3); padding-bottom: 4px; margin-bottom: 6px;">GPS ESTIMATE</div>
+                        <div style="margin-bottom: 2px;"><b>Lat:</b> ${lat.toFixed(7)}</div>
+                        <div style="margin-bottom: 2px;"><b>Lon:</b> ${lon.toFixed(7)}</div>
+                        <div><b>Pixel:</b> (${Math.round(clickX)}, ${Math.round(clickY)})</div>
+                    `;
+                    
+                    const parentRect = document.querySelector('.center-box').getBoundingClientRect();
+                    const tooltipX = e.clientX - parentRect.left + 12;
+                    const tooltipY = e.clientY - parentRect.top + 12;
+                    
+                    tooltip.style.left = `${tooltipX}px`;
+                    tooltip.style.top = `${tooltipY}px`;
+                    tooltip.style.display = 'block';
+                    
+                    clickedGpsPoint = {
+                        x: clickX,
+                        y: clickY,
+                        lat: lat,
+                        lon: lon
+                    };
+                    drawZones();
+                } else {
+                    console.error("GPS conversion API error:", data.message);
+                }
+            })
+            .catch(error => console.error("Error invoking coordinate conversion:", error));
+        });
+
+        // Window resize handlers update both canvases
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            resizeModalCanvas();
+        });
+        modalGcpFeed.addEventListener('load', resizeModalCanvas);
+        setInterval(resizeModalCanvas, 4000);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadZonesFromBackend();
+            fetchGCPConfig();
+        });
     </script>
 </body>
 

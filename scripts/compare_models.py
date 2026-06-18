@@ -76,8 +76,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Compare Old vs New Head Detector")
     parser.add_argument("--video", type=str, required=True, help="Test video file")
     parser.add_argument("--frames", type=int, default=100, help="Frames to benchmark")
-    parser.add_argument("--old", type=str, default="/Volumes/tridelMac/Projects/Dev/ccms/ccms/models/best_head.pt")
-    parser.add_argument("--new", type=str, default="/Volumes/tridelMac/Projects/Dev/ccms/ccms/models/best_head_custom.pt")
+    parser.add_argument("--old", type=str, default="/home/sirisha/Ganapathi/new_ccms/models/best_head.pt")
+    parser.add_argument("--new", type=str, default="/home/sirisha/Ganapathi/new_ccms/models/best_head_custom.pt")
     
     args = parser.parse_args()
     compare_models(args.video, args.old, args.new, args.frames)

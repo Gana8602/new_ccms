@@ -22,16 +22,16 @@ logger = logging.getLogger(__name__)
 
 
 class FaceIdentityManager:
-    SAME_PERSON_THRESHOLD = 0.60
-    UNCERTAIN_THRESHOLD = 0.45
-    MIN_FACE_SIZE = 50
-    MIN_BLUR_VARIANCE = 60.0
+    SAME_PERSON_THRESHOLD = 0.30
+    UNCERTAIN_THRESHOLD = 0.20
+    MIN_FACE_SIZE = 20
+    MIN_BLUR_VARIANCE = 30.0
     MIN_BRIGHTNESS = 45.0
-    MIN_FACE_CONFIDENCE = 0.60
-    YOLO_FACE_CONFIDENCE = 0.35
+    MIN_FACE_CONFIDENCE = 0.65
+    YOLO_FACE_CONFIDENCE = 0.45
     YOLO_MIN_FACE_SIZE = 24
-    YOLO_MIN_BLUR_VARIANCE = 25.0
-    NEW_ID_MIN_FACE_CONFIDENCE = 0.75
+    YOLO_MIN_BLUR_VARIANCE = 20.0
+    NEW_ID_MIN_FACE_CONFIDENCE = 0.70
     SAVE_INTERVAL_SECONDS = 5
     FACE_SIZE = 224
     CROP_PADDING = 0.25
@@ -67,31 +67,16 @@ class FaceIdentityManager:
 
     def _load_backend(self):
         try:
-            from insightface.app import FaceAnalysis
+            from dashboard.services.face_recognition_hf import FaceAnalysis
 
-            providers = ["CPUExecutionProvider"]
-            try:
-                import onnxruntime as ort
-
-                available = ort.get_available_providers()
-                preferred = [
-                    provider
-                    for provider in ("CUDAExecutionProvider", "CoreMLExecutionProvider")
-                    if provider in available
-                ]
-                providers = preferred + providers
-            except ImportError:
-                pass
-
-            self._face_app = FaceAnalysis(name="buffalo_l", providers=providers)
-            self._face_app.prepare(ctx_id=0 if providers[0] == "CUDAExecutionProvider" else -1)
-            self.backend_name = "insightface-arcface"
+            # Attempt to use FaceAnalysis which is configured to fallback to CPU gracefully
+            self._face_app = FaceAnalysis(device='cpu') # Enforce CPU to avoid driver issues for now
+            self.backend_name = "biometric-ai-lab/Face_Recognition"
             logger.info("Face recognition backend ready: %s", self.backend_name)
             return
         except Exception as exc:
             logger.warning(
-                "InsightFace is unavailable; using conservative OpenCV "
-                "appearance recognition. See FACE_RECOGNITION.md. Cause: %s",
+                "HF FaceAnalysis is unavailable; trying fallback backends. Cause: %s",
                 exc,
             )
 
@@ -151,11 +136,13 @@ class FaceIdentityManager:
             close_old_connections()
 
     def _process_frame(self, frame, head_detections=None):
+        print(f"Face process frame called! Detections: {len(head_detections)}")
         if frame is None:
             return []
 
         results = []
-        for detected in self._detect_faces(frame):
+        detected_faces = self._detect_faces(frame)
+        for detected in detected_faces:
             bbox = detected["bbox"]
             confidence = detected["confidence"]
             crop = self._square_face_crop(frame, bbox)
@@ -167,6 +154,7 @@ class FaceIdentityManager:
                 detected.get("backend"),
             )
             if not quality["accepted"]:
+                with open("rejections.log", "a") as f: f.write("Rejected: " + quality.get("reason", "unknown") + "\n")
                 continue
 
             head_track_id = self._match_head_track(bbox, head_detections or [])
@@ -226,50 +214,12 @@ class FaceIdentityManager:
         return results
 
     def _detect_faces(self, frame):
-        if self._face_app is not None:
-            detections = []
-            for face in self._face_app.get(frame):
-                bbox = tuple(int(value) for value in face.bbox)
-                embedding = getattr(face, "normed_embedding", None)
-                if embedding is None:
-                    embedding = getattr(face, "embedding", None)
-                detections.append(
-                    {
-                        "bbox": bbox,
-                        "confidence": float(getattr(face, "det_score", 0.0)),
-                        "embedding": embedding,
-                        "backend": "insightface",
-                    }
-                )
-            return detections
+        faces = []
+        height, width = frame.shape[:2]
+        bboxes_with_conf = []
 
-        if self._fallback_yolo is not None:
-            predictions = self._fallback_yolo.predict(
-                frame,
-                conf=self.YOLO_FACE_CONFIDENCE,
-                imgsz=960,
-                verbose=False,
-            )
-            faces = []
-            if predictions and predictions[0].boxes is not None:
-                boxes = predictions[0].boxes.xyxy.cpu().numpy().astype(int)
-                confidences = predictions[0].boxes.conf.cpu().numpy()
-                for box, confidence in zip(boxes, confidences):
-                    x1, y1, x2, y2 = box
-                    bbox = (int(x1), int(y1), int(x2), int(y2))
-                    crop = self._square_face_crop(frame, bbox)
-                    faces.append(
-                        {
-                            "bbox": bbox,
-                            "confidence": float(confidence),
-                            "embedding": self._fallback_embedding(crop),
-                            "backend": "yolo",
-                        }
-                    )
-            return faces
-
+        # 1. Detection Phase (Priority: Caffe > YOLO)
         if self._fallback_net is not None:
-            height, width = frame.shape[:2]
             blob = cv2.dnn.blobFromImage(
                 cv2.resize(frame, (300, 300)),
                 1.0,
@@ -278,55 +228,75 @@ class FaceIdentityManager:
             )
             self._fallback_net.setInput(blob)
             detections = self._fallback_net.forward()
-            faces = []
             for index in range(detections.shape[2]):
                 confidence = float(detections[0, 0, index, 2])
                 if confidence < self.MIN_FACE_CONFIDENCE:
                     continue
-                box = detections[0, 0, index, 3:7] * np.array(
-                    [width, height, width, height]
-                )
+                box = detections[0, 0, index, 3:7] * np.array([width, height, width, height])
                 x1, y1, x2, y2 = box.astype(int)
-                bbox = (
-                    max(0, x1),
-                    max(0, y1),
-                    min(width, x2),
-                    min(height, y2),
-                )
-                crop = self._square_face_crop(frame, bbox)
-                faces.append(
-                    {
-                        "bbox": bbox,
-                        "confidence": confidence,
-                        "embedding": self._fallback_embedding(crop),
-                        "backend": "opencv-dnn",
-                    }
-                )
-            return faces
+                bboxes_with_conf.append(((x1, y1, x2, y2), confidence))
+        elif self._fallback_yolo is not None:
+            predictions = self._fallback_yolo.predict(
+                frame, conf=self.YOLO_FACE_CONFIDENCE, imgsz=960, verbose=False
+            )
+            if predictions and predictions[0].boxes is not None:
+                boxes = predictions[0].boxes.xyxy.cpu().numpy().astype(int)
+                confidences = predictions[0].boxes.conf.cpu().numpy()
+                for box, confidence in zip(boxes, confidences):
+                    x1, y1, x2, y2 = box
+                    bboxes_with_conf.append(((int(x1), int(y1), int(x2), int(y2)), float(confidence)))
+        elif self._face_app is not None:
+            # Fallback to FaceAnalysis built-in YOLO
+            for face in self._face_app.get(frame):
+                if isinstance(face, dict):
+                    bbox = face.get("bbox")
+                    if not bbox: continue
+                    bbox = tuple(int(value) for value in bbox)
+                    confidence = float(face.get("det_score", 0.0))
+                    embedding = face.get("normed_embedding", face.get("embedding", None))
+                else:
+                    bbox = tuple(int(value) for value in face.bbox)
+                    confidence = float(getattr(face, "det_score", 0.0))
+                    embedding = getattr(face, "normed_embedding", getattr(face, "embedding", None))
 
-        if self._fallback_detector is None:
-            return []
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = self._fallback_detector.detectMultiScale(
-            gray,
-            scaleFactor=1.1,
-            minNeighbors=6,
-            minSize=(self.MIN_FACE_SIZE, self.MIN_FACE_SIZE),
-        )
-        return [
-            {
-                "bbox": (int(x), int(y), int(x + w), int(y + h)),
-                "confidence": 1.0,
-                "embedding": self._fallback_embedding(
-                    self._square_face_crop(
-                        frame,
-                        (int(x), int(y), int(x + w), int(y + h)),
-                    )
-                ),
-                "backend": "haar",
-            }
-            for x, y, w, h in faces
-        ]
+                faces.append({
+                    "bbox": bbox,
+                    "confidence": confidence,
+                    "embedding": embedding,
+                    "backend": "insightface",
+                })
+            return faces
+        elif self._fallback_detector is not None:
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            haar_faces = self._fallback_detector.detectMultiScale(
+                gray, scaleFactor=1.1, minNeighbors=6, minSize=(self.MIN_FACE_SIZE, self.MIN_FACE_SIZE)
+            )
+            for x, y, w, h in haar_faces:
+                bboxes_with_conf.append(((int(x), int(y), int(x + w), int(y + h)), 1.0))
+
+        # 2. Embedding Phase
+        for bbox, confidence in bboxes_with_conf:
+            crop = self._square_face_crop(frame, bbox)
+            if self._face_app is not None and hasattr(self._face_app, "get_embedding"):
+                try:
+                    embedding = self._face_app.get_embedding(crop)
+                    backend = "insightface"
+                except Exception as e:
+                    logger.warning(f"Face embedding failed: {e}")
+                    embedding = self._fallback_embedding(crop)
+                    backend = "yolo"
+            else:
+                embedding = self._fallback_embedding(crop)
+                backend = "yolo"
+
+            faces.append({
+                "bbox": bbox,
+                "confidence": confidence,
+                "embedding": embedding,
+                "backend": backend
+            })
+
+        return faces
 
     def _fallback_embedding(self, crop):
         if crop is None or crop.size == 0:

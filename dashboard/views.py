@@ -177,7 +177,7 @@ class RTSPVideoStream:
 
             if not grabbed or frame is None:
                 self._disconnect()
-                time.sleep(1)
+                time.sleep(0.05)
                 continue
 
             if not self.quality_guard.accept(frame):
@@ -207,7 +207,9 @@ class RTSPVideoStream:
 # This engine continuously processes the *latest* available frame
 # and skips any intermediate frames if inference takes too long.
 class InferenceEngine:
-    def __init__(self):
+    def __init__(self, stream_reader, camera_id="0"):
+        self.stream_reader = stream_reader
+        self.camera_id = camera_id
         self.latest_processed_frame = None
         self.latest_raw_frame = None
         self.lock = threading.Lock()
@@ -221,7 +223,7 @@ class InferenceEngine:
         last_frame_id = -1
         
         while not self.stopped:
-            success, frame, frame_id = stream_reader.read()
+            success, frame, frame_id = self.stream_reader.read()
             if not success or frame is None:
                 time.sleep(0.1)
                 continue
@@ -232,19 +234,24 @@ class InferenceEngine:
                 
             last_frame_id = frame_id
             
-            # Dynamic Fencing (Centered)
-            h, w = frame.shape[:2]
-            fence_w = int(w * 0.35)
-            fence_h = int(h * 0.35)
-            cx, cy = w // 2, h // 2
-            fence_pts = [[cx - fence_w, cy - fence_h], [cx + fence_w, cy - fence_h], [cx + fence_w, cy + fence_h], [cx - fence_w, cy + fence_h]]
-            crowd_counter.roi_service.set_roi("0", fence_pts)
+            # Dynamic Fencing (Centered) if no custom zones are set
+            if not crowd_counters[self.camera_id].roi_service.has_custom_zones:
+                h, w = frame.shape[:2]
+                fence_w = int(w * 0.35)
+                fence_h = int(h * 0.35)
+                cx, cy = w // 2, h // 2
+                fence_pts = [[cx - fence_w, cy - fence_h], [cx + fence_w, cy - fence_h], [cx + fence_w, cy + fence_h], [cx - fence_w, cy + fence_h]]
+                crowd_counters[self.camera_id].roi_service.set_zones(self.camera_id, [{
+                    "name": "Zone 1",
+                    "color_hex": "#eab308",
+                    "points": fence_pts
+                }])
             
             # Keep Clear View completely clean while all analytics continue.
             raw_copy = frame.copy()
             
             # Heavy inference (this modifies frame in-place)
-            processed = crowd_counter.process_frame(frame, camera_id="0")
+            processed = crowd_counters[self.camera_id].process_frame(frame, camera_id=self.camera_id)
             
             with self.lock:
                 self.latest_raw_frame = raw_copy
@@ -258,40 +265,72 @@ def get_face_identity_manager():
     return face_identity_manager
 
 
-def ensure_pipeline_started():
-    global head_detector, person_detector, face_identity_manager, crowd_counter
-    global stream_reader, inference_engine
+stream_readers = {}
+inference_engines = {}
+crowd_counters = {}
 
-    if inference_engine is not None:
-        return
+def ensure_pipeline_started():
+    global head_detector, person_detector, face_identity_manager
+    global stream_readers, inference_engines, crowd_counters
+
     with pipeline_lock:
-        if inference_engine is not None:
+        if len(inference_engines) > 0:
             return
 
         print("Initializing Architecture...")
         head_detector = HeadDetector(
-            "/Volumes/tridelMac/Projects/Dev/ccms/ccms/models/best_head.pt"
+            "/home/sirisha/Ganapathi/new_ccms/models/best_head.pt"
         )
         person_detector = YOLOPersonDetector("yolo11m.pt")
         manager = face_identity_manager or FaceIdentityManager()
         face_identity_manager = manager
-        crowd_counter = CrowdCounterService(
-            head_detector,
-            person_detector,
-            face_identity_manager=manager,
-        )
 
-        default_fence_pts = [
-            [160, 90],
-            [480, 90],
-            [480, 270],
-            [160, 270],
-        ]
-        crowd_counter.roi_service.set_roi("0", default_fence_pts)
-        stream_reader = RTSPVideoStream(
-            "rtsp://127.0.0.1:8554/mystream1"
-        ).start()
-        inference_engine = InferenceEngine().start()
+        cameras_config = {
+            "0": "rtsp://127.0.0.1:8554/mystream1",
+            "1": "rtsp://192.168.0.2:8554/mac_camera"
+        }
+
+        # Load custom zones if saved configuration exists
+        zones_config_path = Path(settings.BASE_DIR) / "zones_config.json" 
+        saved_zones = None
+        if zones_config_path.exists():
+            try:
+                with open(zones_config_path, "r") as f:
+                    saved_zones = json.load(f)
+            except Exception as e:
+                print(f"Error loading custom zones config: {e}")
+
+        for cam_id, stream_url in cameras_config.items():
+            cc = CrowdCounterService(
+                head_detector,
+                person_detector,
+                face_identity_manager=manager,
+            )
+            crowd_counters[cam_id] = cc
+
+            if saved_zones and isinstance(saved_zones, dict) and cam_id in saved_zones:
+                cc.roi_service.set_zones(cam_id, saved_zones[cam_id])
+                cc.roi_service.has_custom_zones = True
+            elif saved_zones and isinstance(saved_zones, list) and cam_id == "0":
+                cc.roi_service.set_zones(cam_id, saved_zones)
+                cc.roi_service.has_custom_zones = True
+            else:
+                default_fence_pts = [
+                    [160, 90],
+                    [480, 90],
+                    [480, 270],
+                    [160, 270],
+                ]
+                cc.roi_service.set_zones(cam_id, [{
+                    "name": "Zone 1",
+                    "color_hex": "#eab308",
+                    "points": default_fence_pts
+                }])
+
+            sr = RTSPVideoStream(stream_url).start()
+            stream_readers[cam_id] = sr
+            ie = InferenceEngine(stream_reader=sr, camera_id=cam_id).start()
+            inference_engines[cam_id] = ie
 
 # Global state for UI view mode
 ai_view_enabled = False
@@ -308,23 +347,77 @@ def set_view_mode(request):
             return JsonResponse({"status": "error", "message": str(e)}, status=400)
     return JsonResponse({"status": "error", "message": "Invalid method"}, status=405)
 
+@csrf_exempt
+def manage_zones(request):
+    ensure_pipeline_started()
+    zones_config_path = Path(settings.BASE_DIR) / "zones_config.json"
+    
+    # We will temporarily map the frontend's zone updates to all cameras
+    # or just camera "0", until the frontend sends camera_id.
+    target_cam = "0"
+    
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            zones = data.get("zones", [])
+            
+            if len(zones) > 0:
+                crowd_counters[target_cam].roi_service.set_zones(target_cam, zones)
+                crowd_counters[target_cam].roi_service.has_custom_zones = True
+                with open(zones_config_path, "w") as f:
+                    json.dump({target_cam: zones}, f, indent=4)
+            else:
+                crowd_counters[target_cam].roi_service.has_custom_zones = False
+                if zones_config_path.exists():
+                    zones_config_path.unlink()
+                    
+            return JsonResponse({"status": "success"})
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": str(e)}, status=400)
+            
+    elif request.method == "GET":
+        zones = crowd_counters[target_cam].roi_service.get_zones(target_cam)
+        zones_data = []
+        for z in zones:
+            pts_list = z["points"].tolist() if hasattr(z["points"], "tolist") else z["points"]
+            zones_data.append({
+                "name": z["name"],
+                "color_hex": z["color_hex"],
+                "points": pts_list
+            })
+        return JsonResponse({"zones": zones_data})
+        
+    return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
+
 def home(request):
     ensure_pipeline_started()
     return render(request, 'dashboard/home.html')
 
 def get_counts(request):
     ensure_pipeline_started()
-    stats = crowd_counter.get_global_stats()
-    return JsonResponse({
-        'inside': stats.get('inside', 0),
-        'outside': stats.get('outside', 0),
-        'total': stats.get('total', 0),
-        'occupancy': stats.get('occupancy', 0),
-        'available': stats.get('available_capacity', 200),
-        'density_percentage': stats.get('density_percentage', 0),
-        'density_level': stats.get('density_level', 'LOW'),
-        'alerts': stats.get('alerts', [])
-    })
+    aggregated_stats = {
+        'inside': 0, 'outside': 0, 'total': 0,
+        'forward': 0, 'backward': 0, 'occupancy': 0,
+        'available': 0, 'density_percentage': 0,
+        'density_level': 'LOW', 'alerts': [], 'zones': []
+    }
+    
+    for cam_id, cc in crowd_counters.items():
+        stats = cc.get_global_stats()
+        aggregated_stats['inside'] += stats.get('inside', 0)
+        aggregated_stats['outside'] += stats.get('outside', 0)
+        aggregated_stats['total'] += stats.get('total', 0)
+        aggregated_stats['forward'] += stats.get('forward', 0)
+        aggregated_stats['backward'] += stats.get('backward', 0)
+        aggregated_stats['occupancy'] = max(aggregated_stats['occupancy'], stats.get('occupancy', 0))
+        aggregated_stats['available'] += stats.get('available_capacity', 200)
+        aggregated_stats['density_percentage'] = max(aggregated_stats['density_percentage'], stats.get('density_percentage', 0))
+        if stats.get('density_level') in ['HIGH', 'CRITICAL']:
+            aggregated_stats['density_level'] = stats.get('density_level')
+        aggregated_stats['alerts'].extend(stats.get('alerts', []))
+        aggregated_stats['zones'].extend(stats.get('zones', []))
+        
+    return JsonResponse(aggregated_stats)
 
 
 def _media_url(image_path):
@@ -376,62 +469,125 @@ def get_known_faces(request):
 
 
 def get_unknown_faces(request):
-    # Clear quality-approved faces receive PERSON-ID values. Unknown is
-    # reserved for masked faces and is exposed through /api/faces/masked/.
-    return JsonResponse({"faces": []})
+    return JsonResponse({"faces": _observation_payload("unknown", "Unknown Person", limit=50)})
 
 
 def get_masked_faces(request):
-    return JsonResponse(
-        {"faces": _observation_payload("masked_unknown", "MASKED")}
-    )
+    return JsonResponse({"faces": _observation_payload("masked", "Masked Person", limit=50)})
 
 
 def get_face_stats(request):
-    known = FaceIdentity.objects.filter(is_active=True)
-    faces_root = Path(settings.MEDIA_ROOT) / "faces"
-    unknown_count = 0
-    masked_count = sum(
-        1 for _ in (faces_root / "masked_unknown").glob("*.jpg")
-    )
+    manager = get_face_identity_manager()
+    known_count = FaceIdentity.objects.filter(is_active=True).count()
+    unknown_dir = Path(settings.MEDIA_ROOT) / "faces" / "unknown"
+    masked_dir = Path(settings.MEDIA_ROOT) / "faces" / "masked"
+    unknown_count = len(list(unknown_dir.glob("*.jpg"))) if unknown_dir.exists() else 0
+    masked_count = len(list(masked_dir.glob("*.jpg"))) if masked_dir.exists() else 0
+
     return JsonResponse(
         {
-            "known_count": known.count(),
+            "known_count": known_count,
             "unknown_count": unknown_count,
             "masked_count": masked_count,
-            "total_recognized": known.aggregate(total=Sum("seen_count"))["total"] or 0,
+            "total_recognized": FaceIdentity.objects.aggregate(total=Sum("seen_count"))["total"] or 0,
         }
     )
 
-def gen_frames():
+def gen_frames(camera_id="0", ai_mode=False):
     ensure_pipeline_started()
-    # This just streams the latest frame to the client browser at ~30 FPS
-    # Independent of how slow the inference engine is running
+    engine = inference_engines.get(camera_id)
+    if not engine:
+        return
+        
     while True:
-        time.sleep(0.03) # Cap streaming FPS to ~30
-        
-        with inference_engine.lock:
-            if ai_view_enabled:
-                frame_to_send = inference_engine.latest_processed_frame
+        time.sleep(0.03)
+
+        with engine.lock:
+            if ai_mode:
+                frame_to_send = engine.latest_processed_frame
             else:
-                frame_to_send = inference_engine.latest_raw_frame
-            
+                frame_to_send = engine.latest_raw_frame
+
         if frame_to_send is None:
-            # Fallback to pure video if inference hasn't run yet
-            success, f, _ = stream_reader.read()
-            if success and f is not None:
-                frame_to_send = f.copy()
-            else:
-                continue
-        
-        # Encode and yield frame
+            continue
+
         ret, buffer = cv2.imencode('.jpg', frame_to_send)
         if not ret:
             continue
+            
         frame_bytes = buffer.tobytes()
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
 
-def video_feed(request):
-    return StreamingHttpResponse(gen_frames(),
+def video_feed(request, camera_id="0"):
+    ai_mode = request.GET.get('ai', 'false').lower() == 'true'
+    return StreamingHttpResponse(gen_frames(camera_id, ai_mode),
                                  content_type='multipart/x-mixed-replace; boundary=frame')
+
+def landing(request):
+    ensure_pipeline_started()
+    return render(request, 'dashboard/landing.html')
+
+import base64
+import json
+from django.core.files.base import ContentFile
+import time
+
+@csrf_exempt
+def inspect_face(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            b64_img = data.get('image', '')
+            if ',' in b64_img:
+                b64_img = b64_img.split(',')[1]
+            img_data = base64.b64decode(b64_img)
+            
+            # Save it temporarily
+            import numpy as np
+            import cv2
+            nparr = np.frombuffer(img_data, np.uint8)
+            img_cv2 = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            
+            # Using the inference engine's face_manager
+            # Wait, FaceIdentityManager processes full frames, but here we only have the crop.
+            # We can use _fallback_embedding or process_image to get the embedding and compare.
+            if face_identity_manager and face_identity_manager._face_app:
+                # The crop is already a face
+                # But our custom get() expects a full frame. We can just use the transform directly.
+                try:
+                    from PIL import Image
+                    face_crop = Image.fromarray(cv2.cvtColor(img_cv2, cv2.COLOR_BGR2RGB))
+                    model = face_identity_manager._face_app.model
+                    transform = face_identity_manager._face_app.transform
+                    device = face_identity_manager._face_app.device
+                    
+                    img_tensor = transform(face_crop).unsqueeze(0).to(device)
+                    import torch
+                    with torch.no_grad():
+                        embedding = model(img_tensor).cpu().numpy().flatten()
+                        
+                    identity, sim = face_identity_manager._find_best_match(embedding)
+                    
+                    if identity and sim > 0.45:
+                        return JsonResponse({
+                            'id': identity.person_id,
+                            'match_img': _media_url(identity.image_path)
+                        })
+                    else:
+                        return JsonResponse({
+                            'id': 'UNKNOWN',
+                            'match_img': None
+                        })
+                except Exception as e:
+                    print(f"Error in inspect_face matching: {e}")
+
+            # Fallback if no engine
+            return JsonResponse({
+                'id': 'UNKNOWN',
+                'match_img': None
+            })
+            
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+    return JsonResponse({'error': 'Invalid method'}, status=405)

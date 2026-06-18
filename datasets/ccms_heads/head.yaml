@@ -1,7 +1,0 @@
-path: /Volumes/tridelMac/Projects/Dev/ccms/new_ccms/datasets/ccms_heads
-
-train: images/train
-val: images/val
-
-names:
-  0: head

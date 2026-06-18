@@ -1,0 +1,844 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sabarimala Smart Crowd Management System</title>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{% static 'dashboard/css/landing.css' %}">
+</head>
+
+<body>
+
+    <div class="app-wrapper">
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="logo-container">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/4/4e/Sabarimala_Ayyappa_Temple.png" alt="Logo"
+                    class="main-logo" onerror="this.style.display='none'">
+                <div class="logo-text-backup"
+                    style="display:none; color: #b78a3b; font-weight: bold; text-align: center; font-size: 24px; padding: 10px;">
+                    <i class="fa-solid fa-place-of-worship"></i>
+                </div>
+                <div class="saranam-text">SARANAM AYYAPPA</div>
+            </div>
+
+            <nav class="side-nav">
+                <a href="#" class="nav-item active"><i class="fa-solid fa-border-all"></i> DASHBOARD</a>
+                <a href="#" class="nav-item"><i class="fa-solid fa-video"></i> LIVE MONITORING</a>
+                <a href="#" class="nav-item"><i class="fa-solid fa-chart-line"></i> CROWD ANALYTICS</a>
+                <a href="#" class="nav-item"><i class="fa-solid fa-users"></i> PILGRIM COUNT</a>
+                <a href="#" class="nav-item"><i class="fa-solid fa-map-location-dot"></i> ROUTE MAP</a>
+                <a href="#" class="nav-item"><i class="fa-solid fa-tower-broadcast"></i> CROWD DENSITY</a>
+                <a href="#" class="nav-item"><i class="fa-solid fa-triangle-exclamation"></i> HIGH RISK MONITORING</a>
+                <a href="#" class="nav-item"><i class="fa-solid fa-person-cane"></i> AGE GROUP MONITORING</a>
+                <a href="#" class="nav-item"><i class="fa-solid fa-microchip"></i> IOT SENSORS</a>
+                <a href="#" class="nav-item"><i class="fa-solid fa-camera"></i> AI CAMERAS</a>
+                <a href="#" class="nav-item"><i class="fa-solid fa-bell"></i> ALERTS & INCIDENTS</a>
+                <a href="#" class="nav-item"><i class="fa-solid fa-cloud-sun"></i> WEATHER</a>
+                <a href="#" class="nav-item"><i class="fa-solid fa-car-side"></i> TRAFFIC STATUS</a>
+                <a href="#" class="nav-item"><i class="fa-solid fa-hospital"></i> FACILITIES</a>
+                <a href="#" class="nav-item"><i class="fa-solid fa-desktop"></i> COMMAND CENTER</a>
+                <a href="#" class="nav-item"><i class="fa-regular fa-file-lines"></i> REPORTS</a>
+                <a href="#" class="nav-item"><i class="fa-solid fa-gear"></i> SYSTEM SETTINGS</a>
+            </nav>
+
+            <div class="quick-access">
+                <div class="qa-title">QUICK ACCESS</div>
+                <div class="qa-buttons">
+                    <button><i class="fa-solid fa-bullhorn"></i> Live Announcements</button>
+                    <button><i class="fa-solid fa-route"></i> Route Advisories</button>
+                    <button><i class="fa-solid fa-car-side"></i> Traffic Updates</button>
+                    <button><i class="fa-solid fa-suitcase-medical"></i> Medical Assistance</button>
+                    <button><i class="fa-solid fa-suitcase"></i> Lost & Found</button>
+                    <button><i class="fa-regular fa-comment-dots"></i> Feedback / Complaints</button>
+                </div>
+            </div>
+
+            <div class="emergency-box">
+                <div class="emergency-header">EMERGENCY</div>
+                <div class="emergency-number"><i class="fa-solid fa-phone"></i> 112</div>
+                <div class="sos-text">SOS QUICK CALL</div>
+                <div class="emergency-links">
+                    <a href="#"><i class="fa-solid fa-circle-plus"></i> Police Control Room</a>
+                    <a href="#"><i class="fa-solid fa-circle-plus"></i> Medical Control Room</a>
+                    <a href="#"><i class="fa-solid fa-circle-plus"></i> Fire & Rescue</a>
+                    <a href="#"><i class="fa-solid fa-circle-plus"></i> Volunteer Support</a>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+            <!-- TOP HEADER -->
+            <header class="top-header">
+                <div class="header-titles">
+                    <h1>SABARIMALA SMART CROWD MANAGEMENT SYSTEM</h1>
+                    <div class="subtitle">REAL-TIME MONITORING <span class="dot">•</span> AI ANALYTICS <span
+                            class="dot">•</span> SAFE PILGRIMAGE</div>
+                </div>
+                <div class="header-right">
+                    <div class="top-info"><i class="fa-regular fa-calendar"></i> 18 May 2025</div>
+                    <div class="top-info"><i class="fa-regular fa-clock"></i> 10:30:45 AM</div>
+                    <div class="top-weather">
+                        <i class="fa-solid fa-cloud-rain" style="color:#5bc0de;"></i>
+                        <div>24°C<br><span>Light Rain</span></div>
+                    </div>
+                    <div class="top-icons">
+                        <i class="fa-solid fa-wifi"></i>
+                        <div class="notification-icon">
+                            <i class="fa-solid fa-bell"></i>
+                            <span class="badge">5</span>
+                        </div>
+                        <div class="user-profile">
+                            <i class="fa-solid fa-user"></i> Admin <i class="fa-solid fa-chevron-down"></i>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- KPI ROW -->
+            <div class="kpi-row">
+                <div class="kpi-card">
+                    <div class="kpi-title">TOTAL PILGRIMS (TODAY)</div>
+                    <div class="kpi-value">1,28,563</div>
+                    <div class="kpi-trend up"><i class="fa-solid fa-arrow-up"></i> 18.5% vs Yesterday</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-title">CURRENT PILGRIMS</div>
+                    <div class="kpi-value">45,678</div>
+                    <div class="kpi-trend live"><span class="pulse-dot"></span> Live</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-title"><i class="fa-solid fa-heart-pulse" style="color:#d9534f"></i> HIGH DENSITY
+                        ZONES</div>
+                    <div class="kpi-value">7</div>
+                    <div class="kpi-trend down" style="color:#d9534f;">Requires Attention</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-title">AVERAGE WAIT TIME</div>
+                    <div class="kpi-value">02h 35m</div>
+                    <div class="kpi-trend down" style="color:#5cb85c;"><i class="fa-solid fa-arrow-down"></i> 12% vs
+                        Yesterday</div>
+                </div>
+                <div class="kpi-card safety-status">
+                    <div class="kpi-title">SAFETY STATUS</div>
+                    <div class="status-indicator">
+                        <i class="fa-solid fa-shield-check"
+                            style="color:#5cb85c; font-size: 32px; display:inline-block; margin-right:10px;"></i>
+                        <div style="display:inline-block; text-align:left;">
+                            <div class="status-val" style="color:#5cb85c; font-size:24px; font-weight:bold;">SECURE
+                            </div>
+                        </div>
+                    </div>
+                    <div class="kpi-trend" style="color:#5cb85c;">All Systems Normal</div>
+                </div>
+                <div class="kpi-card weather-card">
+                    <div class="kpi-title">WEATHER</div>
+                    <div style="display:flex; align-items:center; justify-content:center; gap:15px; margin-top:5px;">
+                        <i class="fa-solid fa-cloud-rain" style="font-size:36px; color:#5bc0de;"></i>
+                        <div style="text-align:left;">
+                            <div style="font-size:24px; font-weight:bold;">24°C</div>
+                            <div style="font-size:12px; color:#666;">Light Rain</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- ALERTS WIDGET IN KPI ROW -->
+                <div class="kpi-card active-alerts-widget" style="grid-column: span 1; padding:0;">
+                    <div class="widget-header">
+                        <h3>ACTIVE ALERTS</h3>
+                        <a href="#">View All <i class="fa-solid fa-angle-right"></i></a>
+                    </div>
+                    <div class="alert-list-mini">
+                        <div class="alert-item-mini">
+                            <i class="fa-solid fa-triangle-exclamation" style="color:#f0ad4e;"></i>
+                            <div class="alert-info-mini">
+                                <div class="al-title">High Crowd Density</div>
+                                <div class="al-loc">Sannidhanam</div>
+                            </div>
+                            <div class="al-time">10:28 AM</div>
+                        </div>
+                        <div class="alert-item-mini">
+                            <i class="fa-solid fa-circle-plus" style="color:#d9534f;"></i>
+                            <div class="alert-info-mini">
+                                <div class="al-title">Medical Emergency</div>
+                                <div class="al-loc">Pamba</div>
+                            </div>
+                            <div class="al-time">10:21 AM</div>
+                        </div>
+                        <div class="alert-item-mini">
+                            <i class="fa-solid fa-person-falling" style="color:#d9534f;"></i>
+                            <div class="alert-info-mini">
+                                <div class="al-title">Aged Person in Distress</div>
+                                <div class="al-loc">Sabaripedam</div>
+                            </div>
+                            <div class="al-time">10:18 AM</div>
+                        </div>
+                        <div class="alert-item-mini">
+                            <i class="fa-solid fa-child" style="color:#f0ad4e;"></i>
+                            <div class="alert-info-mini">
+                                <div class="al-title">Child Separated</div>
+                                <div class="al-loc">Nilakkal - 3rd Mile</div>
+                            </div>
+                            <div class="al-time">10:15 AM</div>
+                        </div>
+                        <div class="alert-item-mini">
+                            <i class="fa-solid fa-car-burst" style="color:#d9534f;"></i>
+                            <div class="alert-info-mini">
+                                <div class="al-title">Traffic Slow Movement</div>
+                                <div class="al-loc">Nilakkal - 3rd Mile</div>
+                            </div>
+                            <div class="al-time">10:10 AM</div>
+                        </div>
+                    </div>
+                    <!-- <div class="alert-summary-mini">
+                    <div><span class="lbl">TOTAL ALERTS</span><span class="val">28</span></div>
+                    <div><span class="lbl">ACTIVE ALERTS</span><span class="val" style="color:#d9534f;">5</span></div>
+                    <div><span class="lbl">RESOLVED ALERTS</span><span class="val" style="color:#5cb85c;">23</span></div>
+                </div> -->
+                </div>
+            </div>
+
+            <!-- MAIN GRID (MAP + CHARTS) -->
+            <div class="dashboard-grid">
+
+                <!-- LEFT BIG SECTION (MAP) -->
+                <div class="map-section section-card">
+                    <div class="section-header map-header">
+                        <h3>PILGRIMAGE ROUTE OVERVIEW</h3>
+                    </div>
+                    <div class="map-container">
+                        <!-- Placeholder map background -->
+                        <div class="map-bg">
+                            <div
+                                style="position:absolute; top:20px; left:20px; background:#1b2438; color:white; padding:10px; border-radius:5px; width:200px; font-size:11px;">
+                                <strong>ROUTE 1: NILAKKAL TO PAMBA (ROAD)</strong><br>
+                                Total Distance : 19 KM<br>
+                                Grid Interval : 1 KM
+                            </div>
+                            <div
+                                style="position:absolute; top:20px; right:20px; background:#204060; color:white; padding:10px; border-radius:5px; width:200px; font-size:11px;">
+                                <strong>ROUTE 2: PAMBA TO SANNIDHANAM (TREK)</strong><br>
+                                Total Distance : 5 KM<br>
+                                Grid Interval : 500 M
+                            </div>
+                            <div
+                                style="position:absolute; bottom:20px; right:20px; background:#1b2438; color:white; padding:10px; border-radius:5px; font-size:11px;">
+                                <strong>LEGEND</strong><br>
+                                <i class="fa-solid fa-circle" style="color:#4285f4;"></i> 1 KM Grid Point (NP-00 to
+                                NP-19)<br>
+                                <i class="fa-solid fa-circle" style="color:#5bc0de;"></i> 500 M Grid Point (PS-00 to
+                                PS-10)<br>
+                                <i class="fa-solid fa-camera" style="color:#f0ad4e;"></i> AI Camera<br>
+                                <i class="fa-solid fa-microchip" style="color:#5cb85c;"></i> IoT Sensor<br>
+                                <i class="fa-solid fa-plus" style="color:#d9534f;"></i> Medical / Emergency Point<br>
+                                <i class="fa-solid fa-shield" style="color:#0275d8;"></i> Control Room<br>
+                                <i class="fa-solid fa-bus" style="color:#f0ad4e;"></i> Bus Stand<br>
+                                <i class="fa-solid fa-campground" style="color:#5cb85c;"></i> Base Camp
+                            </div>
+
+                            <!-- Map Route Line 1 -->
+                            <svg width="100%" height="100%"
+                                style="position:absolute; top:0; left:0; pointer-events:none;">
+                                <path d="M 50,300 Q 150,200 300,250 T 600,350 T 800,200" fill="none" stroke="#4285f4"
+                                    stroke-width="4" stroke-dasharray="5,5" />
+                                <path d="M 800,200 Q 850,150 820,50" fill="none" stroke="#5bc0de" stroke-width="4"
+                                    stroke-dasharray="5,5" />
+                            </svg>
+
+                            <!-- Map Nodes (Mock) -->
+                            <div class="map-node" style="top:290px; left:40px;"><i class="fa-solid fa-campground"
+                                    style="color:#5cb85c;"></i><br><span>Nilakkal Base Camp</span></div>
+                            <div class="map-node" style="top:240px; left:290px;"><i class="fa-solid fa-camera"
+                                    style="color:#f0ad4e;"></i><br><span>NP-05</span></div>
+                            <div class="map-node" style="top:340px; left:590px;"><i class="fa-solid fa-camera"
+                                    style="color:#f0ad4e;"></i><br><span>NP-12</span></div>
+                            <div class="map-node" style="top:190px; left:790px;"><i class="fa-solid fa-shield"
+                                    style="color:#0275d8;"></i><br><span>Pamba Control Room</span></div>
+                            <div class="map-node" style="top:40px; left:810px;"><i class="fa-solid fa-place-of-worship"
+                                    style="color:#f0ad4e;"></i><br><span>Sannidhanam</span></div>
+                        </div>
+                    </div>
+                    <div class="map-footer-banners">
+                        <div class="banner-half" style="background:#0a4a2b;">
+                            NILAKKAL TO PAMBA<br><span>AI Cameras at Key Critical Points</span>
+                        </div>
+                        <div class="banner-half" style="background:#0d3d63;">
+                            PAMBA TO SANNIDHANAM<br><span>AI Cameras every 25 Meter Spacing</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RIGHT COL 1 (CHARTS) -->
+                <div class="right-col-1">
+                    <div class="section-card heatmap-card">
+                        <div class="section-header">
+                            <h3>CROWD DENSITY HEATMAP (LIVE)</h3>
+                            <a href="#">View Fullscreen</a>
+                        </div>
+                        <div class="heatmap-img-container">
+                            <img src="https://images.unsplash.com/photo-1541701494587-cb58502866ab?q=80&w=800&auto=format&fit=crop"
+                                style="width:100%; height:80px; object-fit:cover; border-radius:5px;" alt="Heatmap">
+                            <div class="heatmap-legend">
+                                <div><span class="color-box" style="background:#d9534f;"></span> Very High</div>
+                                <div><span class="color-box" style="background:#f0ad4e;"></span> High</div>
+                                <div><span class="color-box" style="background:#5cb85c;"></span> Moderate</div>
+                                <div><span class="color-box" style="background:#5bc0de;"></span> Low</div>
+                                <div><span class="color-box" style="background:#0275d8;"></span> Very Low</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-card trend-card">
+                        <div class="section-header">
+                            <h3>CROWD DENSITY TREND (Last 24 Hours)</h3>
+                            <a href="#">View All</a>
+                        </div>
+                        <div class="chart-container-sm">
+                            <canvas id="trendChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="section-card field-density-card" style="flex-grow:1;">
+                        <div class="section-header">
+                            <h3>FIELD CROWD DENSITY (LIVE)</h3>
+                            <a href="#">View Fullscreen</a>
+                        </div>
+                        <div class="field-density-content" style="display:flex; gap:10px;">
+                            <img src="https://images.unsplash.com/photo-1517457373958-b7bdd4587205?q=80&w=800&auto=format&fit=crop"
+                                style="width:70%; height:80px; object-fit:cover; border-radius:5px;"
+                                alt="Field Density">
+                            <div class="density-stats" style="width:30%; font-size:11px;">
+                                <div class="d-stat"><span class="color-box" style="background:#d9534f;"></span> Very
+                                    High <strong>72%</strong></div>
+                                <div class="d-stat"><span class="color-box" style="background:#f0ad4e;"></span> High
+                                    <strong>18%</strong>
+                                </div>
+                                <div class="d-stat"><span class="color-box" style="background:#5cb85c;"></span> Moderate
+                                    <strong>7%</strong>
+                                </div>
+                                <div class="d-stat"><span class="color-box" style="background:#5bc0de;"></span> Low
+                                    <strong>2%</strong>
+                                </div>
+                                <div class="d-stat"><span class="color-box" style="background:#0275d8;"></span> Very Low
+                                    <strong>1%</strong>
+                                </div>
+                                <div style="margin-top:10px; font-size:10px; color:#888;">Updated: 10:30:45 AM</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LIVE CAMERA FEEDS -->
+            <div class="section-card camera-feeds-section">
+                <div class="section-header">
+                    <h3>LIVE CAMERA FEEDS</h3>
+                </div>
+                <div class="camera-grid">
+                    <div class="camera-box">
+                        <img src="https://images.unsplash.com/photo-1541701494587-cb58502866ab?q=80&w=400&auto=format&fit=crop"
+                            alt="Cam 1">
+                        <span class="live-badge">Live</span>
+                        <div class="cam-label">Nilakkal Base Camp</div>
+                    </div>
+                    <div class="camera-box">
+                        <img src="https://images.unsplash.com/photo-1517457373958-b7bdd4587205?q=80&w=400&auto=format&fit=crop"
+                            alt="Cam 2">
+                        <span class="live-badge">Live</span>
+                        <div class="cam-label">Nilakkal - 2 KM</div>
+                    </div>
+                    <div class="camera-box">
+                        <img src="https://images.unsplash.com/photo-1478147427282-58a87a120781?q=80&w=400&auto=format&fit=crop"
+                            alt="Cam 3">
+                        <span class="live-badge">Live</span>
+                        <div class="cam-label">Nilakkal - 5 KM</div>
+                    </div>
+                    <div class="camera-box">
+                        <img src="https://images.unsplash.com/photo-1531266752426-aad472b7bbf4?q=80&w=400&auto=format&fit=crop"
+                            alt="Cam 4">
+                        <span class="live-badge">Live</span>
+                        <div class="cam-label">Pamba</div>
+                    </div>
+                    <div class="camera-box">
+                        <img src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=400&auto=format&fit=crop"
+                            alt="Cam 5">
+                        <span class="live-badge">Live</span>
+                        <div class="cam-label">Pamba Sub Control Room</div>
+                    </div>
+                    <div class="camera-box">
+                        <img src="https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?q=80&w=400&auto=format&fit=crop"
+                            alt="Cam 6">
+                        <span class="live-badge">Live</span>
+                        <div class="cam-label">Sabaripedam</div>
+                    </div>
+                    <div class="camera-box">
+                        <img src="https://images.unsplash.com/photo-1478147427282-58a87a120781?q=80&w=400&auto=format&fit=crop"
+                            alt="Cam 7">
+                        <span class="live-badge">Live</span>
+                        <div class="cam-label">Pamba - 3 KM Trek</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="widgets-scroll-container">
+            <!-- WIDGETS ROW -->
+            <div class="widgets-row">
+
+                <!-- PILGRIM COUNT -->
+                <div class="section-card widget-col">
+                    <div class="section-header">
+                        <h3>PILGRIM COUNT (LIVE)</h3>
+                        <a href="#">View Details</a>
+                    </div>
+                    <div class="widget-body split-widget">
+                        <div class="chart-wrapper">
+                            <canvas id="pilgrimPieChart"></canvas>
+                            <div class="center-text"><strong>1,28,563</strong><br>Total</div>
+                        </div>
+                        <div class="list-wrapper">
+                            <div class="list-item"><span class="color-box" style="background:#4285f4;"></span> Nilakkal
+                                <span>32,560 (25%)</span>
+                            </div>
+                            <div class="list-item"><span class="color-box" style="background:#5cb85c;"></span> Pamba
+                                <span>28,450 (22%)</span>
+                            </div>
+                            <div class="list-item"><span class="color-box" style="background:#f0ad4e;"></span>
+                                Sabaripedam <span>24,780 (19%)</span></div>
+                            <div class="list-item"><span class="color-box" style="background:#0275d8;"></span>
+                                Sannidhanam <span>42,773 (34%)</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- WAIT TIME ESTIMATION -->
+                <div class="section-card widget-col">
+                    <div class="section-header">
+                        <h3>WAIT TIME ESTIMATION</h3>
+                        <a href="#">View Details</a>
+                    </div>
+                    <div class="widget-body">
+                        <div class="list-wrapper wait-times">
+                            <div class="list-item"><span class="color-box" style="background:#4285f4;"></span> Nilakkal
+                                <span class="time-green">00h 45m</span>
+                            </div>
+                            <div class="list-item"><span class="color-box" style="background:#f0ad4e;"></span> Pamba
+                                <span class="time-orange">01h 20m</span>
+                            </div>
+                            <div class="list-item"><span class="color-box" style="background:#f0ad4e;"></span>
+                                Sabaripedam <span class="time-orange">02h 10m</span></div>
+                            <div class="list-item"><span class="color-box" style="background:#d9534f;"></span>
+                                Sannidhanam <span class="time-red">02h 35m</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- IOT SENSOR STATUS -->
+                <div class="section-card widget-col">
+                    <div class="section-header">
+                        <h3>IOT SENSOR STATUS</h3>
+                        <a href="#">View All</a>
+                    </div>
+                    <div class="widget-body split-widget">
+                        <div class="chart-wrapper">
+                            <canvas id="iotPieChart"></canvas>
+                            <div class="center-text"><strong>1,025</strong><br>Online</div>
+                        </div>
+                        <div class="list-wrapper">
+                            <div class="list-item"><span class="color-box" style="background:#5cb85c;"></span> Online
+                                <span>1,025 (91%)</span>
+                            </div>
+                            <div class="list-item"><span class="color-box" style="background:#d9534f;"></span> Offline
+                                <span>75 (7%)</span>
+                            </div>
+                            <div class="list-item"><span class="color-box" style="background:#f0ad4e;"></span>
+                                Maintenance <span>25 (2%)</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- WEATHER INFORMATION -->
+                <div class="section-card widget-col" style="flex: 1.5;">
+                    <div class="section-header">
+                        <h3>WEATHER INFORMATION</h3>
+                        <a href="#">View Forecast</a>
+                    </div>
+                    <div class="widget-body split-widget weather-widget">
+                        <div class="weather-current">
+                            <i class="fa-solid fa-cloud-rain" style="font-size:48px; color:#5bc0de;"></i>
+                            <div>
+                                <div class="temp">24°C</div>
+                                <div class="desc">Light Rain</div>
+                            </div>
+                        </div>
+                        <div class="weather-details">
+                            <div>Humidity <span>87%</span></div>
+                            <div>Wind Speed <span>8 km/h</span></div>
+                            <div>Visibility <span>6 km</span></div>
+                            <div>Feels Like <span>23°C</span></div>
+                        </div>
+                    </div>
+                    <div class="weather-forecast">
+                        <div class="forecast-day">
+                            <div>SUN 18</div>
+                            <i class="fa-solid fa-cloud-rain" style="color:#5bc0de;"></i>
+                            <div>22°C / 18°C</div>
+                        </div>
+                        <div class="forecast-day">
+                            <div>MON 19</div>
+                            <i class="fa-solid fa-cloud-showers-heavy" style="color:#5bc0de;"></i>
+                            <div>24°C / 19°C</div>
+                        </div>
+                        <div class="forecast-day">
+                            <div>TUE 20</div>
+                            <i class="fa-solid fa-cloud" style="color:#888;"></i>
+                            <div>25°C / 20°C</div>
+                        </div>
+                        <div class="forecast-day">
+                            <div>WED 21</div>
+                            <i class="fa-solid fa-sun" style="color:#f0ad4e;"></i>
+                            <div>26°C / 20°C</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RECENT INCIDENTS (Spans right) -->
+                <div class="section-card widget-col recent-incidents-card" style="flex: 2;">
+                    <div class="section-header">
+                        <h3>RECENT INCIDENTS</h3>
+                        <a href="#">View All</a>
+                    </div>
+                    <div class="widget-body">
+                        <table class="incidents-table">
+                            <thead>
+                                <tr>
+                                    <th>TIME</th>
+                                    <th>LOCATION</th>
+                                    <th>TYPE</th>
+                                    <th>STATUS</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>10:28 AM</td>
+                                    <td>Sannidhanam</td>
+                                    <td>High Crowd Density</td>
+                                    <td class="status-active">Active</td>
+                                </tr>
+                                <tr>
+                                    <td>10:21 AM</td>
+                                    <td>Pamba</td>
+                                    <td>Medical Emergency</td>
+                                    <td class="status-active">Active</td>
+                                </tr>
+                                <tr>
+                                    <td>10:18 AM</td>
+                                    <td>Sabaripedam</td>
+                                    <td>Aged Person in Distress</td>
+                                    <td class="status-active">Active</td>
+                                </tr>
+                                <tr>
+                                    <td>10:15 AM</td>
+                                    <td>Nilakkal - 3rd Mile</td>
+                                    <td>Child Separated</td>
+                                    <td class="status-active">Active</td>
+                                </tr>
+                                <tr>
+                                    <td>10:10 AM</td>
+                                    <td>Nilakkal - 3rd Mile</td>
+                                    <td>Traffic Slow Movement</td>
+                                    <td class="status-active">Active</td>
+                                </tr>
+                                <tr>
+                                    <td>09:58 AM</td>
+                                    <td>Pamba</td>
+                                    <td>Lost & Found</td>
+                                    <td class="status-resolved">Resolved</td>
+                                </tr>
+                                <tr>
+                                    <td>09:45 AM</td>
+                                    <td>Sannidhanam</td>
+                                    <td>Medical Emergency</td>
+                                    <td class="status-resolved">Resolved</td>
+                                </tr>
+                                <tr>
+                                    <td>09:30 AM</td>
+                                    <td>Sannidhanam</td>
+                                    <td>High Crowd Density</td>
+                                    <td class="status-resolved">Resolved</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- BOTTOM WIDGETS ROW -->
+            <div class="widgets-row">
+                <!-- HIGH RISK MONITORING -->
+                <div class="section-card widget-col">
+                    <div class="section-header">
+                        <h3>HIGH RISK MONITORING (LIVE)</h3>
+                        <a href="#">View All</a>
+                    </div>
+                    <div class="widget-body">
+                        <div class="list-wrapper full-width-list">
+                            <div class="list-item"><i class="fa-solid fa-heart-pulse"
+                                    style="color:#d9534f; width:20px;"></i> High Risk Persons <span>660</span></div>
+                            <div class="list-item"><i class="fa-solid fa-stethoscope"
+                                    style="color:#0275d8; width:20px;"></i> Medical Conditions <span>212</span></div>
+                            <div class="list-item"><i class="fa-solid fa-person-pregnant"
+                                    style="color:#5cb85c; width:20px;"></i> Pregnant Women <span>98</span></div>
+                            <div class="list-item"><i class="fa-brands fa-accessible-icon"
+                                    style="color:#4285f4; width:20px;"></i> Disabled Persons <span>150</span></div>
+                            <div class="list-item"><i class="fa-solid fa-users" style="color:#888; width:20px;"></i>
+                                Others <span>200</span></div>
+                        </div>
+                        <div style="text-align:center; margin-top:10px;"><a href="#"
+                                style="color:#0275d8; font-size:12px; text-decoration:none;">View High Risk Map</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AGE GROUP DISTRIBUTION -->
+                <div class="section-card widget-col" style="flex:1.5;">
+                    <div class="section-header">
+                        <h3>AGE GROUP DISTRIBUTION (LIVE)</h3>
+                    </div>
+                    <div class="widget-body split-widget">
+                        <div class="chart-wrapper">
+                            <canvas id="agePieChart"></canvas>
+                            <div class="center-text"><strong>45,678</strong><br>Total</div>
+                        </div>
+                        <div class="list-wrapper">
+                            <div class="list-item"><span class="color-box" style="background:#5bc0de;"></span> 0 - 12
+                                Years <span>2,345 (5%)</span></div>
+                            <div class="list-item"><span class="color-box" style="background:#5cb85c;"></span> 13 - 17
+                                Years <span>3,210 (7%)</span></div>
+                            <div class="list-item"><span class="color-box" style="background:#4285f4;"></span> 18 - 40
+                                Years <span>26,783 (58%)</span></div>
+                            <div class="list-item"><span class="color-box" style="background:#f0ad4e;"></span> 41 - 60
+                                Years <span>9,888 (22%)</span></div>
+                            <div class="list-item"><span class="color-box" style="background:#d9534f;"></span> 60+ Years
+                                <span>3,452 (7%)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- GENDER & CATEGORY DISTRIBUTION -->
+                <div class="section-card widget-col" style="flex:2;">
+                    <div class="section-header">
+                        <h3>GENDER & CATEGORY DISTRIBUTION (LIVE)</h3>
+                    </div>
+                    <div class="widget-body gender-category-grid">
+                        <div class="gc-item">
+                            <i class="fa-solid fa-person" style="color:#4285f4; font-size:48px;"></i>
+                            <div class="gc-title">Male</div>
+                            <div class="gc-val">32,456 (71%)</div>
+                        </div>
+                        <div class="gc-item">
+                            <i class="fa-solid fa-person-dress" style="color:#d9534f; font-size:48px;"></i>
+                            <div class="gc-title">Female</div>
+                            <div class="gc-val">8,765 (19%)</div>
+                        </div>
+                        <div class="gc-item">
+                            <i class="fa-solid fa-child" style="color:#5cb85c; font-size:48px;"></i>
+                            <div class="gc-title">Kids (&lt;12)</div>
+                            <div class="gc-val">2,345 (5%)</div>
+                        </div>
+                        <div class="gc-item">
+                            <i class="fa-solid fa-person-cane" style="color:#f0ad4e; font-size:48px;"></i>
+                            <div class="gc-title">Aged (60+)</div>
+                            <div class="gc-val">1,452 (3%)</div>
+                        </div>
+                        <div class="gc-item">
+                            <i class="fa-solid fa-user-shield" style="color:#0275d8; font-size:48px;"></i>
+                            <div class="gc-title">High Risk</div>
+                            <div class="gc-val">680 (2%)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FACILITIES & SERVICES STATUS -->
+                <div class="section-card widget-col" style="flex:1.5;">
+                    <div class="section-header">
+                        <h3>FACILITIES & SERVICES STATUS</h3>
+                        <a href="#">View All</a>
+                    </div>
+                    <div class="widget-body">
+                        <div class="list-wrapper full-width-list facilities-list">
+                            <div class="list-item"><i class="fa-solid fa-hospital"
+                                    style="color:#d9534f; width:20px;"></i> Medical Stations <span>12 <span
+                                        class="status-ok">Operational <i class="fa-solid fa-check"></i></span></span>
+                            </div>
+                            <div class="list-item"><i class="fa-solid fa-faucet-drip"
+                                    style="color:#5bc0de; width:20px;"></i> Drinking Water Points <span>28 <span
+                                        class="status-ok">Operational <i class="fa-solid fa-check"></i></span></span>
+                            </div>
+                            <div class="list-item"><i class="fa-solid fa-bed" style="color:#5cb85c; width:20px;"></i>
+                                Rest Areas <span>16 <span class="status-ok">Operational <i
+                                            class="fa-solid fa-check"></i></span></span></div>
+                            <div class="list-item"><i class="fa-solid fa-restroom" style="color:#888; width:20px;"></i>
+                                Toilets <span>34 <span class="status-ok">Operational <i
+                                            class="fa-solid fa-check"></i></span></span></div>
+                            <div class="list-item"><i class="fa-solid fa-shield-halved"
+                                    style="color:#0275d8; width:20px;"></i> Police Help Desks <span>18 <span
+                                        class="status-ok">Operational <i class="fa-solid fa-check"></i></span></span>
+                            </div>
+                            <div class="list-item"><i class="fa-solid fa-suitcase"
+                                    style="color:#f0ad4e; width:20px;"></i> Lost & Found Centers <span>04 <span
+                                        class="status-ok">Operational <i class="fa-solid fa-check"></i></span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CONTROL ROOM & ALERT CENTER -->
+                <div class="section-card widget-col" style="flex:2;">
+                    <div class="section-header">
+                        <h3>CONTROL ROOM & ALERT CENTER</h3>
+                        <a href="#">View Fullscreen</a>
+                    </div>
+                    <div class="widget-body control-room-grid">
+                        <div class="cr-box">
+                            <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=400&auto=format&fit=crop"
+                                alt="Control Room">
+                            <div class="cr-label">Control Room Live View</div>
+                        </div>
+                        <div class="cr-box">
+                            <img src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=400&auto=format&fit=crop"
+                                alt="Alert Center">
+                            <div class="cr-label">Alert Center</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Chart JS Initialization -->
+    <script>
+        // 1. Crowd Density Trend
+        const ctxTrend = document.getElementById('trendChart').getContext('2d');
+        new Chart(ctxTrend, {
+            type: 'line',
+            data: {
+                labels: ['10 AM', '4 PM', '10 PM', '4 AM', '10 AM'],
+                datasets: [
+                    {
+                        label: 'Nilakkal',
+                        data: [30, 45, 25, 10, 35],
+                        borderColor: '#4285f4',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Pamba',
+                        data: [40, 60, 40, 20, 50],
+                        borderColor: '#5cb85c',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Sabaripedam',
+                        data: [50, 75, 55, 30, 65],
+                        borderColor: '#f0ad4e',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Sannidhanam',
+                        data: [60, 90, 70, 40, 80],
+                        borderColor: '#d9534f',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } }
+                },
+                scales: {
+                    y: { beginAtZero: true, max: 100, ticks: { callback: function (value) { return value + "%" }, font: { size: 10 } } },
+                    x: { ticks: { font: { size: 10 } } }
+                }
+            }
+        });
+
+        // 2. Pilgrim Count Pie Chart
+        const ctxPilgrim = document.getElementById('pilgrimPieChart').getContext('2d');
+        new Chart(ctxPilgrim, {
+            type: 'doughnut',
+            data: {
+                labels: ['Nilakkal', 'Pamba', 'Sabaripedam', 'Sannidhanam'],
+                datasets: [{
+                    data: [25, 22, 19, 34],
+                    backgroundColor: ['#4285f4', '#5cb85c', '#f0ad4e', '#0275d8'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, cutout: '70%',
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // 3. IoT Sensor Pie Chart
+        const ctxIot = document.getElementById('iotPieChart').getContext('2d');
+        new Chart(ctxIot, {
+            type: 'doughnut',
+            data: {
+                labels: ['Online', 'Offline', 'Maintenance'],
+                datasets: [{
+                    data: [91, 7, 2],
+                    backgroundColor: ['#5cb85c', '#d9534f', '#f0ad4e'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, cutout: '70%',
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // 4. Age Pie Chart
+        const ctxAge = document.getElementById('agePieChart').getContext('2d');
+        new Chart(ctxAge, {
+            type: 'doughnut',
+            data: {
+                labels: ['0-12', '13-17', '18-40', '41-60', '60+'],
+                datasets: [{
+                    data: [5, 7, 58, 22, 7],
+                    backgroundColor: ['#5bc0de', '#5cb85c', '#4285f4', '#f0ad4e', '#d9534f'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, cutout: '70%',
+                plugins: { legend: { display: false } }
+            }
+        });
+    </script>
+
+</body>
+
+</html>

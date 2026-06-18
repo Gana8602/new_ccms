@@ -50,7 +50,7 @@ def evaluate(model_path, imgsz, split):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate CCMS Head Detector")
-    parser.add_argument("--model", type=str, default="/Volumes/tridelMac/Projects/Dev/ccms/ccms/models/best_head_custom.pt", help="Path to model to evaluate")
+    parser.add_argument("--model", type=str, default="/home/sirisha/Ganapathi/new_ccms/models/best_head_custom.pt", help="Path to model to evaluate")
     parser.add_argument("--imgsz", type=int, default=1280, help="Image size")
     parser.add_argument("--split", type=str, default="val", help="Dataset split (val or test)")
     

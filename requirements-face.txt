@@ -1,3 +1,8 @@
 # Optional face recognition backend. The app safely falls back to detection-only.
 insightface
 onnxruntime
+django
+torch
+torchvision
+torchaudio
+ultralytics

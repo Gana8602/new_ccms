@@ -7,10 +7,10 @@ def train(model_name, imgsz, epochs, batch, device):
     print("🚀 CCMS Dense Crowd Head Detector Training")
     print("="*50)
     
-    yaml_path = os.path.abspath("/Volumes/tridelMac/Projects/Dev/ccms/new_ccms/datasets/ccms_heads/head.yaml")
+    yaml_path = os.path.abspath("/home/sirisha/Ganapathi/new_ccms/datasets/ccms_heads/head.yaml")
     if not os.path.exists(yaml_path):
         print(f"Error: Dataset yaml not found at {yaml_path}")
-        return
+        return 
 
     # Initialize model
     print(f"Loading base model: {model_name}")
@@ -48,7 +48,7 @@ def train(model_name, imgsz, epochs, batch, device):
     # Auto-copy model
     # Sometimes ultralytics alters the name slightly if exist_ok=False, but exist_ok=True keeps it exact
     best_weight = os.path.join(project_dir, "head_training", "weights", "best.pt")
-    target_weight = "/Volumes/tridelMac/Projects/Dev/ccms/ccms/models/best_head_custom.pt"
+    target_weight = "/home/sirisha/Ganapathi/new_ccms/models/best_head_custom.pt"
     
     if os.path.exists(best_weight):
         print("\nTraining Complete! Copying best model...")
