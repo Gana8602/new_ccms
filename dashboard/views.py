@@ -15,7 +15,7 @@ from django.db.models import Sum
 
 from .detectors.yolo_person_detector import YOLOPersonDetector
 from .detectors.head_detector import HeadDetector
-from .models import FaceIdentity
+from .models import FaceIdentity, Camera
 from .services.crowd_counter import CrowdCounterService
 from .services.face_identity_manager import FaceIdentityManager
 
@@ -269,6 +269,85 @@ stream_readers = {}
 inference_engines = {}
 crowd_counters = {}
 
+@csrf_exempt
+def manage_cameras(request):
+    if request.method == "GET":
+        cameras = Camera.objects.all()
+        cam_list = [{"id": str(c.id), "name": c.name, "url": c.url, "gcp_points": c.gcp_points} for c in cameras]
+        return JsonResponse({"cameras": cam_list})
+        
+    elif request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            name = data.get("name")
+            url = data.get("url")
+            
+            if not name or not url:
+                return JsonResponse({"status": "error", "message": "Name and URL required"}, status=400)
+                
+            cam = Camera.objects.create(name=name, url=url, is_active=True)
+            new_id = str(cam.id)
+            
+            # Hot-reload if pipeline is running
+            with pipeline_lock:
+                if face_identity_manager is not None:
+                    cc = CrowdCounterService(
+                        head_detector,
+                        person_detector,
+                        face_identity_manager=face_identity_manager,
+                    )
+                    crowd_counters[new_id] = cc
+                    
+                    default_fence_pts = [[160, 90], [480, 90], [480, 270], [160, 270]]
+                    cc.roi_service.set_zones(new_id, [{"name": "Zone 1", "color_hex": "#eab308", "points": default_fence_pts}])
+                    
+                    sr = RTSPVideoStream(url).start()
+                    stream_readers[new_id] = sr
+                    ie = InferenceEngine(stream_reader=sr, camera_id=new_id).start()
+                    inference_engines[new_id] = ie
+            
+            return JsonResponse({"status": "success", "camera": {"id": new_id, "name": name, "url": url}})
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": str(e)}, status=400)
+            
+    return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
+
+@csrf_exempt
+def delete_camera(request, camera_id):
+    if request.method == "DELETE":
+        try:
+            cam = Camera.objects.get(id=camera_id)
+            cam.delete()
+            
+            with pipeline_lock:
+                if camera_id in inference_engines:
+                    inference_engines[camera_id].stop()
+                    del inference_engines[camera_id]
+                if camera_id in stream_readers:
+                    stream_readers[camera_id].stop()
+                    del stream_readers[camera_id]
+                if camera_id in crowd_counters:
+                    del crowd_counters[camera_id]
+                    
+            return JsonResponse({"status": "success"})
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": str(e)}, status=400)
+    return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
+
+@csrf_exempt
+def save_gcp(request, camera_id):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            gcp_points = data.get("gcp_points", {})
+            cam = Camera.objects.get(id=camera_id)
+            cam.gcp_points = gcp_points
+            cam.save()
+            return JsonResponse({"status": "success"})
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": str(e)}, status=400)
+    return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
+
 def ensure_pipeline_started():
     global head_detector, person_detector, face_identity_manager
     global stream_readers, inference_engines, crowd_counters
@@ -285,22 +364,10 @@ def ensure_pipeline_started():
         manager = face_identity_manager or FaceIdentityManager()
         face_identity_manager = manager
 
-        cameras_config = {
-            "0": "rtsp://127.0.0.1:8554/mystream1",
-            "1": "rtsp://192.168.0.2:8554/mac_camera"
-        }
+        cameras = Camera.objects.filter(is_active=True)
 
-        # Load custom zones if saved configuration exists
-        zones_config_path = Path(settings.BASE_DIR) / "zones_config.json" 
-        saved_zones = None
-        if zones_config_path.exists():
-            try:
-                with open(zones_config_path, "r") as f:
-                    saved_zones = json.load(f)
-            except Exception as e:
-                print(f"Error loading custom zones config: {e}")
-
-        for cam_id, stream_url in cameras_config.items():
+        for cam in cameras:
+            cam_id = str(cam.id)
             cc = CrowdCounterService(
                 head_detector,
                 person_detector,
@@ -308,11 +375,8 @@ def ensure_pipeline_started():
             )
             crowd_counters[cam_id] = cc
 
-            if saved_zones and isinstance(saved_zones, dict) and cam_id in saved_zones:
-                cc.roi_service.set_zones(cam_id, saved_zones[cam_id])
-                cc.roi_service.has_custom_zones = True
-            elif saved_zones and isinstance(saved_zones, list) and cam_id == "0":
-                cc.roi_service.set_zones(cam_id, saved_zones)
+            if cam.zones:
+                cc.roi_service.set_zones(cam_id, cam.zones)
                 cc.roi_service.has_custom_zones = True
             else:
                 default_fence_pts = [
@@ -327,7 +391,7 @@ def ensure_pipeline_started():
                     "points": default_fence_pts
                 }])
 
-            sr = RTSPVideoStream(stream_url).start()
+            sr = RTSPVideoStream(cam.url).start()
             stream_readers[cam_id] = sr
             ie = InferenceEngine(stream_reader=sr, camera_id=cam_id).start()
             inference_engines[cam_id] = ie
@@ -350,41 +414,43 @@ def set_view_mode(request):
 @csrf_exempt
 def manage_zones(request):
     ensure_pipeline_started()
-    zones_config_path = Path(settings.BASE_DIR) / "zones_config.json"
     
-    # We will temporarily map the frontend's zone updates to all cameras
-    # or just camera "0", until the frontend sends camera_id.
-    target_cam = "0"
+    cam = Camera.objects.filter(is_active=True).first()
+    if not cam:
+        return JsonResponse({"zones": []}) if request.method == "GET" else JsonResponse({"status": "error", "message": "No active cameras found"}, status=400)
+        
+    target_cam = str(cam.id)
     
     if request.method == "POST":
         try:
             data = json.loads(request.body)
             zones = data.get("zones", [])
             
+            cam.zones = zones
+            cam.save()
+            
             if len(zones) > 0:
-                crowd_counters[target_cam].roi_service.set_zones(target_cam, zones)
-                crowd_counters[target_cam].roi_service.has_custom_zones = True
-                with open(zones_config_path, "w") as f:
-                    json.dump({target_cam: zones}, f, indent=4)
+                if target_cam in crowd_counters:
+                    crowd_counters[target_cam].roi_service.set_zones(target_cam, zones)
+                    crowd_counters[target_cam].roi_service.has_custom_zones = True
             else:
-                crowd_counters[target_cam].roi_service.has_custom_zones = False
-                if zones_config_path.exists():
-                    zones_config_path.unlink()
+                if target_cam in crowd_counters:
+                    crowd_counters[target_cam].roi_service.has_custom_zones = False
                     
             return JsonResponse({"status": "success"})
         except Exception as e:
             return JsonResponse({"status": "error", "message": str(e)}, status=400)
             
     elif request.method == "GET":
-        zones = crowd_counters[target_cam].roi_service.get_zones(target_cam)
         zones_data = []
-        for z in zones:
-            pts_list = z["points"].tolist() if hasattr(z["points"], "tolist") else z["points"]
-            zones_data.append({
-                "name": z["name"],
-                "color_hex": z["color_hex"],
-                "points": pts_list
-            })
+        if cam.zones:
+            for z in cam.zones:
+                pts_list = z["points"].tolist() if hasattr(z["points"], "tolist") else z["points"]
+                zones_data.append({
+                    "name": z["name"],
+                    "color_hex": z["color_hex"],
+                    "points": pts_list
+                })
         return JsonResponse({"zones": zones_data})
         
     return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
@@ -590,4 +656,17 @@ def inspect_face(request):
             
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=400)
+    return JsonResponse({'error': 'Invalid method'}, status=405)
+
+@csrf_exempt
+def get_settings(request):
+    if request.method == 'GET':
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+        except ImportError:
+            pass
+        return JsonResponse({
+            'mapbox_token': os.environ.get('MAPBOX_TOKEN', '')
+        })
     return JsonResponse({'error': 'Invalid method'}, status=405)

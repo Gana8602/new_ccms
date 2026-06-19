@@ -14,4 +14,8 @@ urlpatterns = [
     path('api/faces/masked/', views.get_masked_faces, name='get_masked_faces'),
     path('api/faces/stats/', views.get_face_stats, name='get_face_stats'),
     path('api/faces/inspect/', views.inspect_face, name='inspect_face'),
+    path('api/cameras/', views.manage_cameras, name='manage_cameras'),
+    path('api/cameras/<str:camera_id>/', views.delete_camera, name='delete_camera'),
+    path('api/cameras/<str:camera_id>/gcp/', views.save_gcp, name='save_gcp'),
+    path('api/settings/', views.get_settings, name='get_settings'),
 ]

@@ -1,6 +1,16 @@
 from django.db import models
 
 
+class Camera(models.Model):
+    name = models.CharField(max_length=255)
+    url = models.CharField(max_length=500)
+    is_active = models.BooleanField(default=True)
+    gcp_points = models.JSONField(default=dict, blank=True)
+    zones = models.JSONField(default=list, blank=True)
+
+    def __str__(self):
+        return self.name
+
 class FaceIdentity(models.Model):
     person_id = models.CharField(max_length=32, unique=True, db_index=True)
     embedding = models.JSONField(default=list)

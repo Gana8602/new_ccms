@@ -1,0 +1,10 @@
+{
+    "0": {
+        "name": "Camera 1",
+        "url": "rtsp://127.0.0.1:8554/mystream1"
+    },
+    "1": {
+        "name": "Camera 2",
+        "url": "rtsp://192.168.0.2:8554/mac_camera"
+    }
+}
