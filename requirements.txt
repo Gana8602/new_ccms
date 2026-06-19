@@ -1,8 +1,9 @@
-# Optional face recognition backend. The app safely falls back to detection-only.
-insightface
-onnxruntime
 django
+gunicorn
 torch
 torchvision
 torchaudio
 ultralytics
+opencv-python-headless
+insightface
+onnxruntime
